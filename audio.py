@@ -216,6 +216,7 @@ class SoundManager:
 
     def __init__(self):
         self.volume = 0.3
+        self.music_volume = 0.25
         self._sounds = {}
         self._current_music = None
 
@@ -284,3 +285,12 @@ class SoundManager:
 
     def adjust_volume(self, delta: float):
         self.volume = max(0.0, min(1.0, self.volume + delta))
+
+    def set_music_volume(self, vol: float):
+        self.music_volume = max(0.0, min(1.0, vol))
+        self._title_music.set_volume(self.music_volume)
+        self._hub_music.set_volume(self.music_volume)
+        self._battle_music.set_volume(self.music_volume)
+
+    def get_music_volume(self) -> float:
+        return self.music_volume

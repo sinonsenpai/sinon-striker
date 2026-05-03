@@ -104,6 +104,9 @@ class DungeonUI:
         hint = self.font_hud.render("ESC: Back to Hub", True, (100, 100, 130))
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, py + 252))
 
+        debug = self.font_hud.render("F3: Test Loot Room", True, (100, 100, 80))
+        self.screen.blit(debug, ((self.w - debug.get_width()) // 2, py + 270))
+
     # ── Room display ──────────────────────────────────────────────
 
     def draw_room(self):

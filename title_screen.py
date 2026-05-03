@@ -140,11 +140,14 @@ class TitleScreen:
             self._start_fade(255, 0.52)
             return "new_game"
         elif self.selected_index == 1:
-            self._show_placeholder("Options — Coming Soon")
-            return None
+            return "options"
         elif self.selected_index == 2:
             pygame.quit()
             sys.exit()
+
+    def enter_options(self, snd):
+        from options_screen import OptionsScreen
+        return OptionsScreen(self.screen, snd)
 
     def trigger_burst(self, x: int, y: int):
         self.bursts.append(ParticleBurst(x, y))

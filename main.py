@@ -20,6 +20,7 @@ from enum import Enum, auto
 
 class GameState(Enum):
     TITLE = auto()
+    OPTIONS = auto()
     HUB = auto()
     DUNGEON = auto()        # floor select
     DUNGEON_ROOM = auto()   # current room display
@@ -98,6 +99,7 @@ def main():
     combat = None
     ui = None
     god_mode = False
+    options_screen = None
 
     # Loot display temp state
     loot_item = None
@@ -126,8 +128,28 @@ def main():
                     elif event.key in (pygame.K_s, pygame.K_DOWN):
                         title_screen.move_down()
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        title_screen.confirm()
+                        result = title_screen.confirm()
+                        if result == "options":
+                            options_screen = title_screen.enter_options(snd)
+                            state = GameState.OPTIONS
                     _trigger_title_burst(title_screen, event)
+
+                # ── OPTIONS ───────────────────────────────────────
+                elif state == GameState.OPTIONS and options_screen is not None:
+                    if event.key in (pygame.K_w, pygame.K_UP):
+                        options_screen.move_up()
+                    elif event.key in (pygame.K_s, pygame.K_DOWN):
+                        options_screen.move_down()
+                    elif event.key == pygame.K_LEFT:
+                        options_screen.adjust_selected(-0.05)
+                    elif event.key == pygame.K_RIGHT:
+                        options_screen.adjust_selected(0.05)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        result = options_screen.confirm()
+                        if result == "back":
+                            state = GameState.TITLE
+                    elif event.key == pygame.K_ESCAPE:
+                        state = GameState.TITLE
 
                 # ── HUB ────────────────────────────────────────────
                 elif state == GameState.HUB and hub_screen is not None:
@@ -190,6 +212,20 @@ def main():
                         state = GameState.DUNGEON_ROOM
                     elif event.key == pygame.K_ESCAPE:
                         state = GameState.HUB
+                    elif event.key == pygame.K_F3:
+                        # DEV: Jump straight to a loot room
+                        dungeon_run = DungeonRun(player, floor=1)
+                        dungeon_run.rooms = [
+                            {"type": RoomType.LOOT, "enemy": None, "cleared": False},
+                            {"type": RoomType.EXIT, "enemy": None, "cleared": False},
+                        ]
+                        dungeon_run.total_rooms = 2
+                        dungeon_run.room_index = 0
+                        dungeon_ui.set_run(dungeon_run)
+                        dungeon_ui.reset_chest()
+                        dungeon_sub = ""
+                        loot_item = None
+                        state = GameState.DUNGEON_ROOM
 
                 # ── DUNGEON ROOM ──────────────────────────────────
                 elif state == GameState.DUNGEON_ROOM and dungeon_run is not None:
@@ -226,6 +262,7 @@ def main():
                         elif isinstance(result, tuple) and result[0] == "loot":
                             loot_item = result[1]
                             dungeon_sub = "loot"
+                            dungeon_ui.reset_chest()  # Start with closed chest
                     # Shop hotkeys (only when inside shop)
                     if dungeon_sub == "shop":
                         if event.key == pygame.K_1:
@@ -238,19 +275,20 @@ def main():
                     elif dungeon_sub == "loot":
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             if not dungeon_ui.chest_opened:
+                                # First press: open chest
                                 dungeon_ui.chest_opened = True
                                 dungeon_ui.chest_anim_timer = 300
                                 dungeon_ui._spawn_chest_sparks()
                                 snd.play("loot_drop")
+                                dungeon_run.mark_cleared()
                             else:
-                                # Take item and advance
+                                # Second press: take item and advance
                                 if loot_item:
                                     if isinstance(loot_item, Consumable):
                                         merge_into_stack(player.consumables, loot_item)
                                     else:
                                         player.inventory.append(loot_item)
                                     loot_item = None
-                                dungeon_run.mark_cleared()
                                 dungeon_ui.reset_chest()
                                 dungeon_sub = ""
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "rest":
@@ -387,6 +425,9 @@ def main():
                 snd.play_hub_music()
                 state = GameState.HUB
 
+        elif state == GameState.OPTIONS and options_screen is not None:
+            options_screen.update(dt_ms)
+
         elif state == GameState.HUB and hub_screen is not None:
             hub_screen.update(dt_ms)
             if hub_screen.fade_done:
@@ -418,6 +459,9 @@ def main():
         # ── Rendering ─────────────────────────────────────────────
         if state == GameState.TITLE:
             title_screen.draw(dt_ms)
+
+        elif state == GameState.OPTIONS and options_screen is not None:
+            options_screen.draw(dt_ms)
 
         elif state == GameState.HUB and hub_screen is not None:
             hub_screen.draw(dt_ms)
