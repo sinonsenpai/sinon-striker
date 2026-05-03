@@ -1,0 +1,533 @@
+"""
+Combat Manager - handles the turn-based state machine for battles.
+
+States:
+  WAIT         -> Initial state, waiting to start
+  MENU_SELECT  -> Player is browsing the command menu (waiting for selection)
+  SKILL_SELECT -> Player is browsing the skill sub-menu
+  ITEM_SELECT  -> Player is browsing the item sub-menu
+  PLAYER_ACTION -> Action confirmed, executing player move
+  ENEMY_TURN   -> Enemy automatically attacks after a delay
+  INVENTORY    -> Equipment management overlay
+  VICTORY      -> Enemy HP <= 0
+  DEFEAT       -> Player HP <= 0
+"""
+
+from enum import Enum, auto
+import random
+from character import Character, Enemy
+from item import LootGenerator, ItemSlot, Consumable, Weapon, Armor, Rarity, pop_from_stack, merge_into_stack
+
+
+class TurnState(Enum):
+    WAIT = auto()
+    MENU_SELECT = auto()
+    SKILL_SELECT = auto()
+    ITEM_SELECT = auto()
+    PLAYER_ACTION = auto()
+    ENEMY_TURN = auto()
+    INVENTORY = auto()
+    VICTORY = auto()
+    DEFEAT = auto()
+
+
+class MenuAction(Enum):
+    ATTACK = auto()
+    SKILL  = auto()
+    ITEM   = auto()
+
+
+MENU_OPTIONS = [MenuAction.ATTACK, MenuAction.SKILL, MenuAction.ITEM]
+
+
+SKILL_DEFS = [
+    {
+        "name": "Star-Shatter Strike",
+        "cost": 20,
+        "damage_mult": 2.5,
+        "desc": "2.5x ATK  |  Self: Vulnerable 1 turn",
+        "self_effect": "vulnerable",
+        "self_effect_duration": 1,
+    },
+    {
+        "name": "Astral Focus",
+        "cost": 10,
+        "damage_mult": 0,
+        "desc": "Next attack gains bonus = missing HP x0.5",
+        "buff": "focused",
+        "buff_duration": 3,
+    },
+]
+
+
+class CombatManager:
+    """Manages the turn-based combat flow between a player and an enemy."""
+
+    ENEMY_DELAY_MS = 1000
+
+    def __init__(self, player: Character, enemy: Enemy, sound_manager=None):
+        self.player = player
+        self.enemy = enemy
+        self._state = TurnState.WAIT
+        self._log: list[str] = []
+        self._enemy_timer: int = 0
+        self._snd = sound_manager
+        self.in_dungeon = False  # set True when in a dungeon run
+
+        # Menu selection tracking
+        self.selected_index: int = 0
+        self.sub_selected_index: int = 0
+
+        # Inventory cursor tracking
+        self.inv_cursor: int = 0
+        self.inv_section: str = "bag"  # "equipped" or "bag"
+        self.inv_equip_cursor: int = 0  # 0 = weapon, 1 = armor
+        self.inv_scroll_offset: int = 0
+        self._gold_dropped: int = 0
+        self._xp_gained: int = 0
+        self._level_ups: list = []
+        self.victory_phase: str = "rewards"  # "rewards" or "level_up"
+        self._last_hit_info = None
+        self._shake_source = None
+        self._enemy_turn_count: int = 0
+
+        # Kick off the first round
+        self._advance_to_menu()
+
+    # ------------------------------------------------------------------ #
+    #  Properties                                                        #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def is_player_turn(self) -> bool:
+        """True when the player can act (browsing menu or confirming action)."""
+        return self._state in (TurnState.MENU_SELECT, TurnState.SKILL_SELECT, TurnState.ITEM_SELECT, TurnState.PLAYER_ACTION, TurnState.INVENTORY)
+
+    @property
+    def combat_active(self) -> bool:
+        """True while combat is in an active turn (not Victory/Defeat)."""
+        return self._state in (
+            TurnState.WAIT,
+            TurnState.MENU_SELECT,
+            TurnState.SKILL_SELECT,
+            TurnState.ITEM_SELECT,
+            TurnState.PLAYER_ACTION,
+            TurnState.ENEMY_TURN,
+            TurnState.INVENTORY,
+        )
+
+    @property
+    def selected_index(self) -> int:
+        """Return the currently highlighted menu index."""
+        return self._selected_index
+
+    @selected_index.setter
+    def selected_index(self, value: int):
+        self._selected_index = max(0, min(value, len(MENU_OPTIONS) - 1))
+
+    # ------------------------------------------------------------------ #
+    #  Public API                                                        #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def state(self) -> TurnState:
+        """Return the current turn state."""
+        return self._state
+
+    @state.setter
+    def state(self, value: TurnState):
+        self._state = value
+
+    def move_menu_up(self):
+        """Move the menu selection up by one."""
+        if self.state != TurnState.MENU_SELECT:
+            return
+        self.selected_index -= 1
+
+    def move_menu_down(self):
+        """Move the menu selection down by one."""
+        if self.state != TurnState.MENU_SELECT:
+            return
+        self.selected_index += 1
+
+    def confirm_action(self):
+        """Confirm the currently selected menu action."""
+        if self.state != TurnState.MENU_SELECT:
+            return
+
+        action = MENU_OPTIONS[self._selected_index]
+
+        if action == MenuAction.ATTACK:
+            self._sfx("menu_confirm")
+            self.state = TurnState.PLAYER_ACTION
+            self._execute_attack()
+        elif action == MenuAction.SKILL:
+            self.sub_selected_index = 0
+            self.state = TurnState.SKILL_SELECT
+        elif action == MenuAction.ITEM:
+            self.sub_selected_index = 0
+            if self.player.consumables:
+                self.state = TurnState.ITEM_SELECT
+            else:
+                self._add_log("No consumable items!")
+
+    # ------------------------------------------------------------------ #
+    #  Sub-menu navigation (Skill / Item)                                #
+    # ------------------------------------------------------------------ #
+
+    def _sub_menu_length(self) -> int:
+        """Return the number of options in the current sub-menu."""
+        if self.state == TurnState.SKILL_SELECT:
+            return len(SKILL_DEFS)
+        elif self.state == TurnState.ITEM_SELECT:
+            return max(1, len(self.player.consumables))
+        return 0
+
+    def move_sub_up(self):
+        """Move the sub-menu cursor up."""
+        if self.state not in (TurnState.SKILL_SELECT, TurnState.ITEM_SELECT):
+            return
+        self.sub_selected_index = max(0, self.sub_selected_index - 1)
+
+    def move_sub_down(self):
+        """Move the sub-menu cursor down."""
+        if self.state not in (TurnState.SKILL_SELECT, TurnState.ITEM_SELECT):
+            return
+        max_idx = self._sub_menu_length() - 1
+        self.sub_selected_index = min(max_idx, self.sub_selected_index + 1)
+
+    def cancel_sub_menu(self):
+        """Return from sub-menu back to MENU_SELECT."""
+        if self.state in (TurnState.SKILL_SELECT, TurnState.ITEM_SELECT):
+            self.state = TurnState.MENU_SELECT
+
+    def confirm_sub_action(self):
+        """Confirm the selected skill or consumable."""
+        if self.state == TurnState.SKILL_SELECT:
+            self._confirm_skill()
+        elif self.state == TurnState.ITEM_SELECT:
+            self._confirm_item()
+
+    def _confirm_skill(self):
+        skill = SKILL_DEFS[self.sub_selected_index]
+        if skill["name"] in self.player.skill_cooldowns:
+            self._add_log(f"{skill['name']} is on cooldown!")
+            return
+        if self.player.sp < skill.get("cost", 0):
+            self._add_log(f"Not enough SP! Need {skill['cost']}, have {self.player.sp}.")
+            return
+        self._execute_skill(skill)
+
+    def _confirm_item(self):
+        """Execute the selected consumable item use."""
+        if not self.player.consumables:
+            return
+        item = self.player.consumables[self.sub_selected_index]
+        self._sfx("item_use")
+
+        missing = self.player.max_hp - self.player.current_hp
+        healed = min(item.hp_restore, missing)
+        self.player.current_hp += healed
+
+        qty = item.quantity
+        pop_from_stack(self.player.consumables, self.sub_selected_index)
+        if qty > 1:
+            self._add_log(f"Hero uses {item.name} x{qty - 1} left! Restored {healed} HP!")
+        else:
+            self._add_log(f"Hero uses {item.name}! Restored {healed} HP!")
+
+        # Clamp cursor
+        if self.player.consumables and self.sub_selected_index >= len(self.player.consumables):
+            self.sub_selected_index = max(0, len(self.player.consumables) - 1)
+        elif not self.player.consumables:
+            self.state = TurnState.MENU_SELECT
+            return
+
+        self.state = TurnState.MENU_SELECT
+
+    # ------------------------------------------------------------------ #
+    #  Inventory management                                              #
+    # ------------------------------------------------------------------ #
+
+    def open_inventory(self):
+        """Open the inventory overlay (only from MENU_SELECT)."""
+        if self.state != TurnState.MENU_SELECT:
+            return
+        self.inv_cursor = 0
+        self.inv_scroll_offset = 0
+        self.state = TurnState.INVENTORY
+
+    def close_inventory(self):
+        """Close the inventory and return to MENU_SELECT."""
+        if self.state != TurnState.INVENTORY:
+            return
+        self.state = TurnState.MENU_SELECT
+
+    def move_inv_up(self):
+        """Move the inventory cursor up."""
+        if self.state != TurnState.INVENTORY:
+            return
+        if self.inv_section == "bag" and self.player.inventory:
+            self.inv_cursor = (self.inv_cursor - 1) % len(self.player.inventory)
+            if self.inv_cursor < self.inv_scroll_offset:
+                self.inv_scroll_offset = self.inv_cursor
+        elif self.inv_section == "equipped":
+            self.inv_equip_cursor = (self.inv_equip_cursor - 1) % 2
+
+    def move_inv_down(self):
+        """Move the inventory cursor down."""
+        if self.state != TurnState.INVENTORY:
+            return
+        if self.inv_section == "bag" and self.player.inventory:
+            self.inv_cursor = (self.inv_cursor + 1) % len(self.player.inventory)
+        elif self.inv_section == "equipped":
+            self.inv_equip_cursor = (self.inv_equip_cursor + 1) % 2
+
+    def toggle_inv_section(self):
+        """Switch between equipped and bag sections in inventory."""
+        if self.state != TurnState.INVENTORY:
+            return
+        self.inv_section = "equipped" if self.inv_section == "bag" else "bag"
+        self.inv_cursor = 0
+        self.inv_equip_cursor = 0
+        self.inv_scroll_offset = 0
+
+    def sort_inventory(self):
+        """Sort bag inventory by rarity (highest first), then by stat value."""
+        RANK = {Rarity.LEGENDARY: 3, Rarity.EPIC: 2, Rarity.RARE: 1, Rarity.COMMON: 0}
+        self.player.inventory.sort(
+            key=lambda it: (RANK.get(it.rarity, 0), it.atk if isinstance(it, Weapon) else it.defense),
+            reverse=True,
+        )
+        self.inv_cursor = 0
+        self.inv_scroll_offset = 0
+
+    def equip_selected(self):
+        """Equip the inventory item under the cursor. Swaps out old gear."""
+        if self.state != TurnState.INVENTORY:
+            return
+        if self.inv_section != "bag":
+            return
+        if not self.player.inventory:
+            return
+
+        item = self.player.inventory[self.inv_cursor]
+        old_item = self.player.equip(item)
+        self.player.inventory.pop(self.inv_cursor)
+
+        if old_item is not None:
+            self.player.inventory.append(old_item)
+
+        if self.player.inventory and self.inv_cursor >= len(self.player.inventory):
+            self.inv_cursor = len(self.player.inventory) - 1
+        elif not self.player.inventory:
+            self.inv_cursor = 0
+
+        self._add_log(f"Equipped {item.name}!")
+
+    def unequip_selected(self):
+        """Unequip the selected item."""
+        if self.state != TurnState.INVENTORY:
+            return
+
+        if self.inv_section == "equipped":
+            slot_key = "weapon" if self.inv_equip_cursor == 0 else "armor"
+            old_item = self.player.unequip_slot(slot_key)
+            if old_item is not None:
+                self.player.inventory.append(old_item)
+                self._add_log(f"Unequipped {old_item.name}!")
+        else:
+            if not self.player.inventory:
+                return
+            item = self.player.inventory[self.inv_cursor]
+            slot_key = "weapon" if item.slot == ItemSlot.WEAPON else "armor"
+            old_item = self.player.unequip_slot(slot_key)
+            if old_item is not None:
+                self.player.inventory.append(old_item)
+                self._add_log(f"Unequipped {old_item.name}!")
+
+    def _execute_skill(self, skill: dict):
+        cost = skill.get("cost", 0)
+        self.player.sp -= cost
+        self._sfx("skill")
+
+        if skill.get("damage_mult", 0) > 0:
+            # Damage skill (Star-Shatter Strike)
+            total_atk = self.player.atk
+            total_def = self.enemy.defn
+
+            focused_bonus = self.player.consume_focused()
+            is_crit = random.random() < self.player.crit_chance
+            crit_mult = 1.8 if is_crit else 1.0
+
+            damage = max(1, int(total_atk * skill["damage_mult"] * crit_mult - total_def) + focused_bonus)
+            actual = self.enemy.take_damage(damage)
+            self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": is_crit}
+
+            crit_tag = "CRITICAL! " if is_crit else ""
+            focus_tag = f"Astral Focus bonus: +{focused_bonus}! " if focused_bonus > 0 else ""
+            self._add_log(f"{self.player.name} uses {skill['name']}! {crit_tag}{focus_tag}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+
+            if is_crit:
+                self._sfx("crit")
+                self._shake_source = "player"
+
+            # Self-debuff
+            if "self_effect" in skill:
+                self.player.add_status(skill["self_effect"], "debuff", skill.get("self_effect_duration", 1))
+                self._add_log(f"{self.player.name} is now Vulnerable!")
+
+            if not self.enemy.is_alive:
+                self._award_xp()
+                self.state = TurnState.VICTORY
+                self._add_log(f"{self.enemy.name} defeated! Victory!")
+                self._sfx("victory")
+                self._award_gold()
+                self._drop_loot()
+                return
+
+        elif "buff" in skill:
+            # Buff skill (Astral Focus)
+            self._sfx("buff")
+            self.player.add_status(skill["buff"], "buff", skill.get("buff_duration", 3))
+            self._add_log(f"{self.player.name} uses {skill['name']}! Focused — next attack gains bonus damage.")
+
+        self._advance_to_enemy_turn()
+
+    def _award_gold(self):
+        """Roll a random gold drop based on enemy type."""
+        if self.enemy.name == "Vanguard Brute":
+            amount = random.randint(25, 50)
+        else:
+            amount = random.randint(20, 40)
+        self.player.gold += amount
+        self._gold_dropped = amount
+        self._sfx("loot_drop")
+        self._add_log(f"Dropped {amount} gold!")
+
+    def _drop_loot(self):
+        """Generate a random loot drop and add it to the player's inventory or consumables."""
+        item = LootGenerator.generate()
+        if isinstance(item, Consumable):
+            merge_into_stack(self.player.consumables, item)
+        else:
+            self.player.inventory.append(item)
+        self._sfx("loot_drop")
+        self._add_log(f"Dropped: {item}!")
+
+    def _award_xp(self):
+        """Grant XP for defeating the enemy and track level-ups."""
+        xp = getattr(self.enemy, "xp_reward", 0)
+        self._xp_gained = xp
+        self._level_ups = self.player.add_xp(xp)
+        if xp > 0:
+            self._add_log(f"Gained {xp} XP!")
+
+    def _sfx(self, name: str):
+        """Play a sound effect if a SoundManager is attached."""
+        if self._snd:
+            self._snd.play(name)
+
+    def _add_log(self, msg: str):
+        """Append a message to the battle log."""
+        self._log.append(msg)
+
+    def _advance_to_menu(self):
+        """Transition to MENU_SELECT (player browses command menu)."""
+        self.player.tick_cooldowns()
+        self.player.tick_status_effects()
+        self.state = TurnState.MENU_SELECT
+        self._add_log("--- Your turn: Choose an action ---")
+
+    def _advance_to_enemy_turn(self):
+        """Transition to ENEMY_TURN and reset the timer."""
+        self.state = TurnState.ENEMY_TURN
+        self._enemy_timer = 0
+        self._sfx("enemy_turn")
+        self._add_log("--- Enemy's turn ---")
+
+    def _execute_attack(self):
+        """Execute a basic strike attack — supports crits and focused buff."""
+        total_atk = self.player.atk
+        total_def = self.enemy.defn
+
+        focused_bonus = self.player.consume_focused()
+
+        is_crit = random.random() < self.player.crit_chance
+        crit_mult = 1.8 if is_crit else 1.0
+
+        damage = max(1, int(total_atk * crit_mult - total_def) + focused_bonus)
+        actual = self.enemy.take_damage(damage)
+        self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": is_crit}
+        self._sfx("attack")
+        if is_crit:
+            self._sfx("crit")
+
+        crit_tag = "CRITICAL! " if is_crit else ""
+        focus_tag = f"Astral Focus bonus: +{focused_bonus}! " if focused_bonus > 0 else ""
+        self._add_log(f"{self.player.name} uses Basic Strike! {crit_tag}{focus_tag}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+        self._shake_source = "player"
+
+        if not self.enemy.is_alive:
+            self._award_xp()
+            self.state = TurnState.VICTORY
+            self._add_log(f"{self.enemy.name} defeated! Victory!")
+            self._sfx("victory")
+            self._award_gold()
+            self._drop_loot()
+        else:
+            self._advance_to_enemy_turn()
+
+    def _enemy_attack(self):
+        """Enemy attacks the player — Vanguard Brute uses Brute Smash every 3 turns."""
+        self._enemy_turn_count += 1
+        total_atk = self.enemy.atk
+        total_def = self.player.defn
+
+        # Brute Smash: every 3 turns, 1.5x damage
+        is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0
+        mult = 1.5 if is_smash else 1.0
+        skill_name = "Brute Smash! " if is_smash else ""
+
+        damage = max(1, int(total_atk * mult - total_def))
+        actual = self.player.take_damage(damage)
+        self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False}
+        self._sfx("player_hit")
+        self._shake_source = "enemy"
+        self._add_log(f"{self.enemy.name} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+
+        if not self.player.is_alive:
+            self.state = TurnState.DEFEAT
+            self._add_log(f"{self.player.name} has fallen... Defeat.")
+        else:
+            self._advance_to_menu()
+
+    def update(self, dt_ms: int):
+        """Call every frame — handles enemy turn delay."""
+        if self.state == TurnState.ENEMY_TURN:
+            self._enemy_timer += dt_ms
+            if self._enemy_timer >= self.ENEMY_DELAY_MS:
+                self._enemy_attack()
+
+    def get_recent_logs(self, count: int = 5) -> list:
+        return self._log[-count:]
+
+    def reset(self):
+        """Reset both characters to full HP and restart combat."""
+        self.player.current_hp = self.player.max_hp
+        self.enemy.current_hp = self.enemy.max_hp
+        self.player.sp = self.player.max_sp
+        self.player.skill_cooldowns.clear()
+        self.player.status_effects.clear()
+        self._log.clear()
+        self._enemy_timer = 0
+        self.selected_index = 0
+        self.sub_selected_index = 0
+        self._gold_dropped = 0
+        self._xp_gained = 0
+        self._level_ups.clear()
+        self.victory_phase = "rewards"
+        self._last_hit_info = None
+        self._shake_source = None
+        self._enemy_turn_count = 0
+        self._advance_to_menu()
