@@ -705,6 +705,16 @@ class HubScreen:
             self.screen.blit(no_eq, (px + m + 4, eq_ry))
             eq_ry += 16
 
+        # Set bonuses
+        active_sets = p.get_active_sets()
+        if active_sets:
+            eq_ry += 4
+            for set_data in active_sets.values():
+                set_text = f"SET: {set_data['description']}"
+                set_surf = self.font_card_desc.render(set_text, True, GOLD)
+                self.screen.blit(set_surf, (px + m + 4, eq_ry))
+                eq_ry += 16
+
         eq_ry += 4
 
         # Bag section

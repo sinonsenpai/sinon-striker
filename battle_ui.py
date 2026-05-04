@@ -683,12 +683,16 @@ class BattleUI:
         equip_lines = (1 if weapon else 0) + (1 if armor else 0)
         if equip_lines == 0:
             equip_lines = 1
+        active_sets = char.get_active_sets()
+        set_bonus_lines = len(active_sets)
         content_h = (name_h + 4       # name row
                      + bar_h + 3       # HP bar
                      + sp_h + row_gap  # SP bar
                      + xp_bar_h + row_gap  # XP bar
                      + stat_h + row_gap
                      + equip_lines * eq_h
+                     + (row_gap if set_bonus_lines > 0 else 0)
+                     + (set_bonus_lines * eq_h if set_bonus_lines > 0 else 0)
                      + (row_gap if char.consumables else 0)
                      + (eq_h if char.consumables else 0))
         panel_h = content_h + m * 2
@@ -820,6 +824,16 @@ class BattleUI:
             self.screen.blit(empty_surf, (cx + (inner_w - empty_surf.get_width()) // 2,
                                            cur_y + (eq_h - empty_surf.get_height()) // 2))
             cur_y += eq_h
+
+        # Set bonuses
+        active_sets = char.get_active_sets()
+        if active_sets:
+            cur_y += row_gap
+            for set_data in active_sets.values():
+                set_text = f"SET: {set_data['description']}"
+                set_surf = self.font_hud.render(set_text, True, GOLD)
+                self.screen.blit(set_surf, (cx + 5, cur_y))
+                cur_y += eq_h
 
         # Row 8: Consumables
         if char.consumables:

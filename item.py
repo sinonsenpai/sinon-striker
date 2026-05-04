@@ -66,6 +66,34 @@ WEAPON_BASE_ATK = 3
 ARMOR_BASE_DEF = 2
 POTION_BASE_HP = 15
 
+GEAR_SETS = {
+    "Dragon": {
+        "pieces": ["Fine Blade", "Fine Scale"],
+        "bonus": {"atk": 5},
+        "description": "Dragon's Wrath — +5 ATK",
+    },
+    "Starlight": {
+        "pieces": ["Star-Blade", "Star-Chainmail"],
+        "bonus": {"atk": 3, "def": 3},
+        "description": "Starlight Blessing — +3 ATK, +3 DEF",
+    },
+    "Iron Will": {
+        "pieces": ["Fine Mace", "Fine Plate"],
+        "bonus": {"def": 5, "atk": 2},
+        "description": "Iron Will — +5 DEF, +2 ATK",
+    },
+    "Shadow": {
+        "pieces": ["Grand Dagger", "Grand Leather"],
+        "bonus": {"atk": 8, "def": 1},
+        "description": "Shadow Strike — +8 ATK, +1 DEF",
+    },
+    "Guardian": {
+        "pieces": ["Fine Sword", "Fine Hauberk"],
+        "bonus": {"def": 8},
+        "description": "Guardian's Aegis — +8 DEF",
+    },
+}
+
 
 class Item:
     """Base class for all equippable items."""
@@ -88,19 +116,21 @@ class Item:
 class Weapon(Item):
     """A weapon item that provides ATK bonus."""
 
-    def __init__(self, name: str, rarity: Rarity, atk: int):
+    def __init__(self, name: str, rarity: Rarity, atk: int, set_name: str = None):
         stat_modifier = {"atk": atk}
         super().__init__(name, rarity, ItemSlot.WEAPON, stat_modifier)
         self.atk = atk
+        self.set_name = set_name
 
 
 class Armor(Item):
     """An armor item that provides DEF bonus."""
 
-    def __init__(self, name: str, rarity: Rarity, defense: int):
+    def __init__(self, name: str, rarity: Rarity, defense: int, set_name: str = None):
         stat_modifier = {"def": defense}
         super().__init__(name, rarity, ItemSlot.ARMOR, stat_modifier)
         self.defense = defense
+        self.set_name = set_name
 
 
 class Consumable:
@@ -156,12 +186,22 @@ class LootGenerator:
         if roll < 0.60:
             name = RARITY_PREFIX[rarity] + random.choice(WEAPON_NAMES)
             atk = WEAPON_BASE_ATK * multiplier
-            return Weapon(name, rarity, atk)
+            set_name = LootGenerator._get_set_name(name)
+            return Weapon(name, rarity, atk, set_name)
         elif roll < 0.88:
             name = RARITY_PREFIX[rarity] + random.choice(ARMOR_NAMES)
             defense = ARMOR_BASE_DEF * multiplier
-            return Armor(name, rarity, defense)
+            set_name = LootGenerator._get_set_name(name)
+            return Armor(name, rarity, defense, set_name)
         else:
             hp_restore = POTION_BASE_HP * multiplier
             name = RARITY_PREFIX[rarity] + "Potion"
             return Consumable(name, rarity, hp_restore)
+
+    @staticmethod
+    def _get_set_name(item_name: str) -> str:
+        """Return the set name if this item belongs to a gear set, else None."""
+        for set_name, set_data in GEAR_SETS.items():
+            if item_name in set_data["pieces"]:
+                return set_name
+        return None

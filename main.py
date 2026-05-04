@@ -369,6 +369,18 @@ def main():
                         god_mode = not god_mode
                         combat._add_log(f"[DEBUG] God Mode {'ON' if god_mode else 'OFF'}")
 
+                    elif event.key == pygame.K_F4:
+                        # DEV: Equip full Dragon Set for set bonus testing
+                        old_atk = player.atk
+                        old_def = player.defn
+                        dragon_weapon = Weapon("Fine Blade", Rarity.RARE, 50, set_name="Dragon")
+                        dragon_armor = Armor("Fine Scale", Rarity.RARE, 50, set_name="Dragon")
+                        player.equip(dragon_weapon)
+                        player.equip(dragon_armor)
+                        new_atk = player.atk
+                        new_def = player.defn
+                        combat._add_log(f"[DEV] Dragon Set equipped! ATK {old_atk} -> {new_atk}  |  DEF {old_def} -> {new_def}")
+
                     elif combat.state == TurnState.INVENTORY:
                         if event.key in (pygame.K_w, pygame.K_UP):
                             combat.move_inv_up()

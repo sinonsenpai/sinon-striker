@@ -3,7 +3,7 @@ Character module - base stats, SP system, status effects, crit system, equipment
 """
 
 import random
-from item import ItemSlot
+from item import ItemSlot, GEAR_SETS
 
 
 class Character:
@@ -46,17 +46,34 @@ class Character:
 
     @property
     def atk(self) -> int:
-        """Total ATK = base + weapon bonus."""
+        """Total ATK = base + weapon bonus + set bonuses."""
         weapon = self.equipment.get("weapon")
         bonus = weapon.stat_modifier.get("atk", 0) if weapon else 0
+        for set_data in self.get_active_sets().values():
+            bonus += set_data["bonus"].get("atk", 0)
         return self._base_atk + bonus
 
     @property
     def defn(self) -> int:
-        """Total DEF = base + armor bonus."""
+        """Total DEF = base + armor bonus + set bonuses."""
         armor = self.equipment.get("armor")
         bonus = armor.stat_modifier.get("def", 0) if armor else 0
+        for set_data in self.get_active_sets().values():
+            bonus += set_data["bonus"].get("def", 0)
         return self._base_def + bonus
+
+    def get_active_sets(self) -> dict:
+        """Return dict of set_name -> set_data for completed sets."""
+        equipped_names = set()
+        for item in self.equipment.values():
+            if item:
+                equipped_names.add(item.name)
+        active = {}
+        for set_name, set_data in GEAR_SETS.items():
+            required = set(set_data["pieces"])
+            if required.issubset(equipped_names):
+                active[set_name] = set_data
+        return active
 
     @property
     def is_alive(self) -> bool:

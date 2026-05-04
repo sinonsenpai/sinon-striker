@@ -584,7 +584,7 @@ class DungeonUI:
                 fy += fs.get_height() + 2
 
             # Risk / Reward hints
-            hint_y = card_y + card_h - 42
+            hint_y = card_y + card_h - 52
             if rtype in (RoomType.COMBAT, RoomType.ELITE):
                 risk = "Risk: High" if rtype == RoomType.ELITE else "Risk: Low"
                 reward = "Reward: XP + Gold"
@@ -602,11 +602,11 @@ class DungeonUI:
                 reward = ""
 
             if risk:
-                rs = self.font_hud.render(risk, True, (120, 120, 140))
+                rs = self.font_hud.render(risk, True, (170, 170, 190))
                 self.screen.blit(rs, (cx + (card_w - rs.get_width()) // 2, hint_y))
                 hint_y += rs.get_height() + 2
             if reward:
-                rw = self.font_hud.render(reward, True, (120, 120, 140))
+                rw = self.font_hud.render(reward, True, (170, 170, 190))
                 self.screen.blit(rw, (cx + (card_w - rw.get_width()) // 2, hint_y))
 
             # Direction hint
