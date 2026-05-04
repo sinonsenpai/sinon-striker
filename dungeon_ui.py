@@ -72,13 +72,13 @@ class DungeonUI:
     def draw_floor_select(self):
         self.screen.fill(BG_COLOR)
         px = (self.w - 440) // 2
-        py = (self.h - 280) // 2
+        py = (self.h - 320) // 2  # Was 280 — more space
         m = 20
 
-        panel = pygame.Surface((440, 280), pygame.SRCALPHA)
+        panel = pygame.Surface((440, 320), pygame.SRCALPHA)  # Was 280 — taller
         panel.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 225))
         self.screen.blit(panel, (px, py))
-        pygame.draw.rect(self.screen, NEON_CYAN, (px, py, 440, 280), 2, border_radius=8)
+        pygame.draw.rect(self.screen, NEON_CYAN, (px, py, 440, 320), 2, border_radius=8)
 
         title = self.font_title.render("DUNGEON", True, NEON_CYAN)
         self.screen.blit(title, ((self.w - title.get_width()) // 2, py + 20))
@@ -94,18 +94,16 @@ class DungeonUI:
             self.screen.blit(s, ((self.w - s.get_width()) // 2, cy))
             cy += 22
 
-        cta = self.font_medium.render("Press ENTER to descend", True, NEON_CYAN)
+        cta_surf = self.font_medium.render("Press ENTER to descend", True, NEON_CYAN)
         pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.005)
-        cta_surf = pygame.Surface((cta.get_width() + 4, cta.get_height() + 4), pygame.SRCALPHA)
-        cta_surf.blit(cta, (2, 2))
         cta_surf.set_alpha(int(255 * pulse))
-        self.screen.blit(cta_surf, ((self.w - cta_surf.get_width()) // 2, py + 200))
+        self.screen.blit(cta_surf, ((self.w - cta_surf.get_width()) // 2, py + 210))  # Was 200
 
-        hint = self.font_hud.render("ESC: Back to Hub", True, (100, 100, 130))
-        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, py + 252))
+        hint = self.font_hud.render("ESC: Back to Hub", True, (120, 120, 140))  # Slightly brighter
+        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, py + 260))  # Was 252
 
         debug = self.font_hud.render("F3: Test Loot Room", True, (100, 100, 80))
-        self.screen.blit(debug, ((self.w - debug.get_width()) // 2, py + 270))
+        self.screen.blit(debug, ((self.w - debug.get_width()) // 2, py + 285))  # Was 270
 
     # ── Room display ──────────────────────────────────────────────
 
@@ -137,9 +135,8 @@ class DungeonUI:
         if fill_w > 0:
             pygame.draw.rect(self.screen, NEON_CYAN, (bx, by, fill_w, bar_h), border_radius=3)
 
-        # Big icon
-        icon_surf = self.font_icon.render(icon, True, color)
-        self.screen.blit(icon_surf, ((self.w - icon_surf.get_width()) // 2, 100))
+        # Big icon (procedural)
+        self._draw_room_icon(icon, self.w // 2, 120, color, size=48)
 
         # Room label
         label_surf = self.font_large.render(f"{label} Room", True, color)
@@ -551,9 +548,7 @@ class DungeonUI:
             label = ROOM_LABELS.get(rtype, "?")
             color = ROOM_COLORS.get(rtype, WHITE)
 
-            icon_surf = self.font_icon.render(icon_text, True, color)
-            ix = cx + (card_w - icon_surf.get_width()) // 2
-            self.screen.blit(icon_surf, (ix, card_y + 15))
+            self._draw_room_icon(icon_text, cx + card_w // 2, card_y + 30, color, size=28)
 
             label_surf = self.font_large.render(label, True, color)
             lx = cx + (card_w - label_surf.get_width()) // 2
@@ -618,3 +613,46 @@ class DungeonUI:
         # Controls hint at bottom
         ctrl = self.font_small.render("[LEFT/RIGHT] Select   [ENTER] Confirm", True, (90, 90, 115))
         self.screen.blit(ctrl, ((self.w - ctrl.get_width()) // 2, self.h - 40))
+
+    def _draw_room_icon(self, icon_type: str, cx: int, cy: int, color, size: int = 32):
+        """Draw a procedural room type icon centered at (cx, cy)."""
+        s = pygame.Surface((size, size), pygame.SRCALPHA)
+        half = size // 2
+        if icon_type == "combat":
+            # Crossed swords
+            pygame.draw.line(s, color, (half - 4, 4), (half + 4, size - 4), max(1, size // 12))
+            pygame.draw.line(s, color, (half + 4, 4), (half - 4, size - 4), max(1, size // 12))
+            pygame.draw.line(s, color, (half, 2), (half, size // 3), max(1, size // 10))
+            pygame.draw.line(s, color, (half, size - size // 3), (half, size - 2), max(1, size // 10))
+        elif icon_type == "elite":
+            # Star
+            points = []
+            for i in range(10):
+                angle = math.pi / 2 + i * math.pi / 5
+                r = half - 2 if i % 2 == 0 else half // 2
+                px = half + r * math.cos(angle)
+                py = half - r * math.sin(angle)
+                points.append((px, py))
+            pygame.draw.polygon(s, color, points)
+        elif icon_type == "loot":
+            # Diamond / gem
+            pygame.draw.polygon(s, color, [
+                (half, 2), (size - 2, half), (half, size - 2), (2, half)
+            ])
+        elif icon_type == "rest":
+            # Crescent moon
+            pygame.draw.circle(s, color, (half - 1, half), half - 3, max(1, size // 10))
+            pygame.draw.circle(s, (0, 0, 0, 0), (half + 2, half), half - 4)
+        elif icon_type == "shop":
+            # Potion flask
+            neck_w = max(2, size // 5)
+            pygame.draw.rect(s, color, (half - neck_w // 2, 2, neck_w, size // 3), border_radius=1)
+            pygame.draw.ellipse(s, color, (2, size // 3, size - 4, size - size // 3 - 2), width=max(1, size // 12))
+        elif icon_type == "exit":
+            # Up arrow
+            pygame.draw.polygon(s, color, [
+                (half, 2), (size - 4, size // 2), (half + size // 5, size // 2),
+                (half + size // 5, size - 4), (half - size // 5, size - 4),
+                (half - size // 5, size // 2), (4, size // 2)
+            ])
+        self.screen.blit(s, (cx - half, cy - half))

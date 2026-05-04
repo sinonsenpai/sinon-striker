@@ -48,10 +48,10 @@ class HubSubState(Enum):
 
 # ── Location data ──────────────────────────────────────────────────────
 LOCATIONS = [
-    {"name": "Dungeon Gate", "icon": "Dg",  "desc": "Descend into danger",   "key": "dungeon"},
-    {"name": "Smithy",       "icon": "Sm",  "desc": "Equip & manage gear",   "key": "smithy"},
-    {"name": "Apothecary",   "icon": "Ap",  "desc": "Buy consumables",       "key": "apothecary"},
-    {"name": "Rest",         "icon": "Zzz", "desc": "Restore HP & SP",       "key": "rest"},
+    {"name": "Dungeon Gate", "icon": "sword",   "desc": "Descend into danger",   "key": "dungeon"},
+    {"name": "Smithy",       "icon": "hammer",  "desc": "Equip & manage gear",   "key": "smithy"},
+    {"name": "Apothecary",   "icon": "potion",  "desc": "Buy consumables",       "key": "apothecary"},
+    {"name": "Rest",         "icon": "moon",    "desc": "Restore HP & SP",       "key": "rest"},
 ]
 
 CARD_W, CARD_H = 165, 135
@@ -484,17 +484,16 @@ class HubScreen:
                 sel_overlay.fill((*NEON_CYAN, int(25 * pulse)))
                 self.screen.blit(sel_overlay, (cx, cy))
 
-            # Icon
+            # Icon (procedural, no font dependency)
             icon = loc["icon"]
-            icon_surf = self.font_icon.render(icon, True, GOLD if selected else DIM_WHITE)
-            ix = cx + (CARD_W - icon_surf.get_width()) // 2
+            ix = cx + CARD_W // 2
             iy = cy + 18
-            self.screen.blit(icon_surf, (ix, iy))
+            self._draw_card_icon(icon, ix, iy, GOLD if selected else DIM_WHITE)
 
             # Name
             name_surf = self.font_card_name.render(loc["name"], True, WHITE if selected else DIM_WHITE)
             nx = cx + (CARD_W - name_surf.get_width()) // 2
-            ny = iy + icon_surf.get_height() + 8
+            ny = iy + 30 + 8
             self.screen.blit(name_surf, (nx, ny))
 
             # Description
@@ -882,6 +881,36 @@ class HubScreen:
             self._toast_text = "HP and SP already full."
         self.sub_state = HubSubState.TOAST
         self._toast_timer = 0
+
+    def _draw_card_icon(self, icon_type: str, cx: int, cy: int, color):
+        """Draw a small procedural icon centered at (cx, cy)."""
+        s = pygame.Surface((30, 30), pygame.SRCALPHA)
+        if icon_type == "sword":
+            # Blade
+            pygame.draw.line(s, color, (15, 2), (15, 20), 2)
+            # Crossguard
+            pygame.draw.line(s, color, (7, 18), (23, 18), 3)
+            # Handle
+            pygame.draw.line(s, color, (15, 18), (15, 28), 2)
+            # Tip
+            pygame.draw.polygon(s, color, [(15, 0), (12, 5), (18, 5)])
+        elif icon_type == "hammer":
+            # Head
+            pygame.draw.rect(s, color, (5, 6, 20, 8), border_radius=2)
+            # Handle
+            pygame.draw.line(s, color, (15, 14), (15, 28), 3)
+        elif icon_type == "potion":
+            # Neck
+            pygame.draw.rect(s, color, (12, 2, 6, 8), border_radius=1)
+            # Body
+            pygame.draw.ellipse(s, color, (4, 10, 22, 18), width=2)
+            # Liquid line
+            pygame.draw.arc(s, color, (6, 12, 18, 14), 0.2, 2.9, 2)
+        elif icon_type == "moon":
+            # Simple bed / rest icon
+            pygame.draw.rect(s, color, (4, 16, 22, 8), border_radius=2)
+            pygame.draw.rect(s, color, (6, 10, 8, 8), border_radius=2)
+        self.screen.blit(s, (cx - 15, cy))
 
     def _start_fade(self, target: float, duration_sec: float):
         self._fade_target = target

@@ -16,12 +16,12 @@ class RoomType(Enum):
 
 
 ROOM_ICONS = {
-    RoomType.COMBAT: "Cm",
-    RoomType.ELITE: "El",
-    RoomType.LOOT: "Lt",
-    RoomType.REST: "Rs",
-    RoomType.SHOP: "Sh",
-    RoomType.EXIT: "Ex",
+    RoomType.COMBAT: "combat",
+    RoomType.ELITE: "elite",
+    RoomType.LOOT: "loot",
+    RoomType.REST: "rest",
+    RoomType.SHOP: "shop",
+    RoomType.EXIT: "exit",
 }
 
 ROOM_COLORS = {
