@@ -5,6 +5,7 @@ Title Screen - starfield background, glowing SINON STRIKER title, and menu optio
 import math
 import random
 import sys
+import os
 import pygame
 
 BG_COLOR = (18, 14, 30)
@@ -15,6 +16,8 @@ GOLD_DIM = (120, 100, 30)
 WHITE = (230, 230, 245)
 DIM_WHITE = (160, 160, 180)
 STAR_COLOR = (180, 200, 230)
+
+SAVE_FILE = "save_data.json"
 
 STAR_COUNT = 130
 BURST_PARTICLE_COUNT = 16
@@ -108,9 +111,14 @@ class TitleScreen:
         self.font_hint = pygame.font.SysFont("arial", 15, bold=False)
 
         # ── Menu ──
-        self.menu_options = ["New Game", "Options", "Quit"]
+        self._has_save = os.path.exists(SAVE_FILE)
+        if self._has_save:
+            self.menu_options = ["Continue", "New Game", "Options", "Quit"]
+        else:
+            self.menu_options = ["New Game", "Options", "Quit"]
         self.selected_index = 0
         self.cursor_icon = ">"
+        self._chosen_action = None  # "continue" or "new_game"
 
         # ── Fade ──
         self.fade_alpha = 0.0   # 0..255
@@ -136,14 +144,32 @@ class TitleScreen:
 
     def confirm(self):
         """Returns an action string or None."""
-        if self.selected_index == 0:
-            self._start_fade(255, 0.52)
-            return "new_game"
-        elif self.selected_index == 1:
-            return "options"
-        elif self.selected_index == 2:
-            pygame.quit()
-            sys.exit()
+        if self._has_save:
+            # Menu: Continue, New Game, Options, Quit
+            if self.selected_index == 0:
+                self._start_fade(255, 0.52)
+                self._chosen_action = "continue"
+                return "continue"
+            elif self.selected_index == 1:
+                self._start_fade(255, 0.52)
+                self._chosen_action = "new_game"
+                return "new_game"
+            elif self.selected_index == 2:
+                return "options"
+            elif self.selected_index == 3:
+                pygame.quit()
+                sys.exit()
+        else:
+            # Menu: New Game, Options, Quit
+            if self.selected_index == 0:
+                self._start_fade(255, 0.52)
+                self._chosen_action = "new_game"
+                return "new_game"
+            elif self.selected_index == 1:
+                return "options"
+            elif self.selected_index == 2:
+                pygame.quit()
+                sys.exit()
 
     def enter_options(self, snd):
         from options_screen import OptionsScreen
@@ -181,6 +207,11 @@ class TitleScreen:
     @property
     def fade_done(self) -> bool:
         return self.fade_alpha >= 255 and self._fade_target == 255
+
+    @property
+    def chosen_action(self) -> str:
+        """Returns 'continue' or 'new_game' after confirm()."""
+        return self._chosen_action
 
     def start_fade_in(self):
         self.fade_alpha = 255.0

@@ -225,18 +225,24 @@ class SoundManager:
         pygame.mixer.quit()
         pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
 
+        # Load persisted settings
+        from save_manager import load_settings
+        settings = load_settings()
+        self.volume = settings.get("sfx_volume", 0.3)
+        self.music_volume = settings.get("music_volume", 0.25)
+
         for name, env in SOUND_ENVELOPES.items():
             vol = SOUND_VOLUMES.get(name, 0.25)
             self._sounds[name] = generate_sound(env, vol)
 
         self._battle_music = generate_battle_music(4.0)
-        self._battle_music.set_volume(0.25)
+        self._battle_music.set_volume(self.music_volume)
 
         self._title_music = generate_title_music(6.0)
-        self._title_music.set_volume(0.25)
+        self._title_music.set_volume(self.music_volume)
 
         self._hub_music = generate_hub_music(5.0)
-        self._hub_music.set_volume(0.25)
+        self._hub_music.set_volume(self.music_volume)
 
     def play(self, name: str):
         """Play a named sound effect at current volume."""

@@ -3,6 +3,7 @@ Main entry point for SINON STRIKER — turn-based battle RPG.
 Handles title screen, hub town, dungeon runs, and battle loop via state management.
 """
 import sys
+import os
 import random
 import pygame
 
@@ -16,6 +17,7 @@ from audio import SoundManager
 from dungeon import DungeonRun, RoomType, ENEMY_POOL
 from dungeon_ui import DungeonUI
 from enum import Enum, auto
+from save_manager import save_game, load_game
 
 
 class GameState(Enum):
@@ -111,6 +113,8 @@ def main():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                if player is not None:
+                    save_game(player, snd)
                 running = False
 
             elif event.type == pygame.MOUSEWHEEL:
@@ -132,6 +136,8 @@ def main():
                         if result == "options":
                             options_screen = title_screen.enter_options(snd)
                             state = GameState.OPTIONS
+                        elif result in ("continue", "new_game"):
+                            pass  # fade handles the transition
                     _trigger_title_burst(title_screen, event)
 
                 # ── OPTIONS ───────────────────────────────────────
@@ -177,6 +183,7 @@ def main():
                             hub_screen.smithy_sort()
                         elif event.key == pygame.K_ESCAPE:
                             hub_screen.cancel()
+                            save_game(player, snd)
 
                     elif sub == HubSubState.APOTHECARY:
                         if event.key in (pygame.K_w, pygame.K_UP):
@@ -187,6 +194,7 @@ def main():
                             hub_screen.shop_buy()
                         elif event.key == pygame.K_ESCAPE:
                             hub_screen.cancel()
+                            save_game(player, snd)
 
                     elif sub == HubSubState.RETURN_PROMPT:
                         if event.key == pygame.K_y:
@@ -201,6 +209,7 @@ def main():
                     elif sub == HubSubState.TOAST:
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                             hub_screen.cancel()
+                            save_game(player, snd)
 
                 # ── DUNGEON (floor select) ────────────────────────
                 elif state == GameState.DUNGEON:
@@ -291,6 +300,7 @@ def main():
                                     loot_item = None
                                 dungeon_ui.reset_chest()
                                 dungeon_sub = ""
+                                save_game(player, snd)
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "rest":
                         # Advance past rest room
                         if dungeon_run.current and dungeon_run.current["cleared"]:
@@ -300,10 +310,12 @@ def main():
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
+                        save_game(player, snd)
                         state = GameState.HUB
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "death":
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
+                        save_game(player, snd)
                         state = GameState.HUB
                         dungeon_run = None
                     elif dungeon_sub == "complete" or dungeon_sub == "death":
@@ -336,10 +348,12 @@ def main():
                                     dungeon_run.mark_cleared()
                                     dungeon_sub = ""
                                     snd.play_hub_music()
+                                    save_game(player, snd)
                                     state = GameState.DUNGEON_ROOM
                                 else:
                                     hub_screen.start_fade_in()
                                     snd.play_hub_music()
+                                    save_game(player, snd)
                                     state = GameState.HUB
                         elif event.key == pygame.K_r:
                             combat.reset()
@@ -431,10 +445,18 @@ def main():
         if state == GameState.TITLE:
             title_screen.update(dt_ms)
             if title_screen.fade_done:
+                action = title_screen.chosen_action
                 player = Character("Hero", max_hp=100, atk=15, defn=5)
+                if action == "continue":
+                    load_game(player)  # Restore saved progress
+                else:
+                    # New Game — delete old save and start fresh
+                    if os.path.exists("save_data.json"):
+                        os.remove("save_data.json")
                 hub_screen = HubScreen(screen, player)
                 hub_screen.start_fade_in()
                 snd.play_hub_music()
+                save_game(player, snd)  # Ensure save exists on hub entry
                 state = GameState.HUB
 
         elif state == GameState.OPTIONS and options_screen is not None:
