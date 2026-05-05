@@ -1,12 +1,12 @@
 {
-  "gold": 5108,
-  "level": 13,
-  "xp": 105,
-  "xp_to_next": 375,
-  "base_atk": 39,
-  "base_def": 17,
-  "max_hp": 220,
-  "current_floor": 2,
+  "gold": 6009,
+  "level": 14,
+  "xp": 340,
+  "xp_to_next": 400,
+  "base_atk": 41,
+  "base_def": 18,
+  "max_hp": 230,
+  "current_floor": 3,
   "equipment": {
     "weapon": {
       "type": "weapon",
@@ -1249,6 +1249,126 @@
       "atk": 6,
       "defense": 0,
       "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Claymore",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Hauberk",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Guardian"
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Scimitar",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Hauberk",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Guardian"
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Mace",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Iron Will"
     }
   ],
   "consumables": [
@@ -1262,7 +1382,7 @@
       "name": "Potion",
       "rarity": "COMMON",
       "hp_restore": 15,
-      "quantity": 12
+      "quantity": 13
     },
     {
       "name": "Small Potion",

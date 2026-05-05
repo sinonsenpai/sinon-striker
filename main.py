@@ -335,7 +335,6 @@ def main():
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
                         ach_manager.inc("dungeons_completed")
-                        current_floor += 1
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         save_game(player, snd, ach_manager, current_floor)
@@ -517,8 +516,11 @@ def main():
                     dungeon_run.advance()
                     dungeon_sub = ""
                     if dungeon_run.done:
+                        current_floor += 1
+                        ach_manager.inc("dungeons_completed")
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
+                        save_game(player, snd, ach_manager, current_floor)
                         state = GameState.HUB
 
         elif state == GameState.BATTLE and combat is not None:
