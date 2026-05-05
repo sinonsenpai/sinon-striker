@@ -96,10 +96,11 @@ class GoldenDust:
 class HubScreen:
     """Renders and manages the Haven's Rest hub town."""
 
-    def __init__(self, screen: pygame.Surface, player):
+    def __init__(self, screen: pygame.Surface, player, ach_manager=None):
         self.screen = screen
         self.w, self.h = screen.get_size()
         self.player = player
+        self._ach_manager = ach_manager
 
         # ── Dust particles ──
         self._dust = [GoldenDust(self.w, self.h) for _ in range(40)]
@@ -255,6 +256,8 @@ class HubScreen:
         self._sell_toast_text = f"Sold {item.name} for {price}g!"
         self._sell_toast_timer = 1500
         self._sell_confirming = False
+        if self._ach_manager:
+            self._ach_manager.unlock("merchant")
 
         if self._inv_cursor >= len(p.inventory):
             self._inv_cursor = max(0, len(p.inventory) - 1)
@@ -554,6 +557,8 @@ class HubScreen:
             merge_into_stack(self.player.consumables, potion)
             self._shop_toast_text = f"Purchased {item['name']}!"
             self._shop_toast_timer = 1500
+            if self._ach_manager:
+                self._ach_manager.unlock("apothecary")
 
     def _draw_apothecary(self):
         overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)

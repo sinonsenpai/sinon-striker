@@ -1,0 +1,24 @@
+{
+  "unlocked": [
+    "collector",
+    "first_blood",
+    "novice",
+    "gold_hoarder",
+    "warrior",
+    "delver",
+    "massacre",
+    "set_bonus",
+    "legendary_find",
+    "slayer"
+  ],
+  "counters": {
+    "level_reached": 11,
+    "deepest_floor": 1,
+    "kills": 142,
+    "gold_earned": 4180,
+    "items_found": 142,
+    "legendaries_found": 3,
+    "crits": 5,
+    "dungeons_completed": 1
+  }
+}

@@ -11,8 +11,10 @@ SAVE_FILE = "save_data.json"
 SETTINGS_FILE = "settings.json"
 
 
-def save_game(player, snd=None):
+def save_game(player, snd=None, ach_manager=None):
     """Save all player progress to JSON."""
+    if ach_manager is not None:
+        ach_manager.save()
     data = {
         "gold": player.gold,
         "level": player.level,

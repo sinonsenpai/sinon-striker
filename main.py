@@ -18,6 +18,7 @@ from dungeon import DungeonRun, RoomType, ENEMY_POOL
 from dungeon_ui import DungeonUI
 from enum import Enum, auto
 from save_manager import save_game, load_game
+from achievements import AchievementManager, AchievementToast
 
 
 class GameState(Enum):
@@ -42,7 +43,7 @@ def _trigger_title_burst(title, event):
     title.trigger_burst(x, y)
 
 
-def _handle_room(player, dungeon, dungeon_ui, snd):
+def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
     """Process the current dungeon room and return next state or None."""
     room = dungeon.current
     if not room:
@@ -54,7 +55,7 @@ def _handle_room(player, dungeon, dungeon_ui, snd):
         # Create enemy and go to battle
         enemy_data = ENEMY_POOL.get(room["enemy"], ENEMY_POOL["slime"])
         enemy = Enemy(enemy_data["name"], enemy_data["hp"], enemy_data["atk"], enemy_data["defn"], enemy_data.get("xp_reward", 0))
-        combat = CombatManager(player, enemy, snd)
+        combat = CombatManager(player, enemy, snd, ach_manager)
         return ("battle", combat)
 
     elif rtype == RoomType.LOOT:
@@ -91,6 +92,10 @@ def main():
     snd.init()
     snd.play_title_music()
 
+    ach_manager = AchievementManager()
+    ach_manager.load()
+    ach_toast = AchievementToast(WIDTH)
+
     state = GameState.TITLE
     title_screen = TitleScreen(screen)
     hub_screen = None
@@ -114,7 +119,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 if player is not None:
-                    save_game(player, snd)
+                    save_game(player, snd, ach_manager)
                 running = False
 
             elif event.type == pygame.MOUSEWHEEL:
@@ -183,7 +188,7 @@ def main():
                             hub_screen.smithy_sort()
                         elif event.key == pygame.K_ESCAPE:
                             hub_screen.cancel()
-                            save_game(player, snd)
+                            save_game(player, snd, ach_manager)
 
                     elif sub == HubSubState.APOTHECARY:
                         if event.key in (pygame.K_w, pygame.K_UP):
@@ -194,7 +199,7 @@ def main():
                             hub_screen.shop_buy()
                         elif event.key == pygame.K_ESCAPE:
                             hub_screen.cancel()
-                            save_game(player, snd)
+                            save_game(player, snd, ach_manager)
 
                     elif sub == HubSubState.RETURN_PROMPT:
                         if event.key == pygame.K_y:
@@ -209,12 +214,13 @@ def main():
                     elif sub == HubSubState.TOAST:
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                             hub_screen.cancel()
-                            save_game(player, snd)
+                            save_game(player, snd, ach_manager)
 
                 # ── DUNGEON (floor select) ────────────────────────
                 elif state == GameState.DUNGEON:
                     if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         dungeon_run = DungeonRun(player)
+                        ach_manager.set("deepest_floor", max(ach_manager.counters.get("deepest_floor", 0), dungeon_run.floor))
                         dungeon_ui.set_run(dungeon_run)
                         dungeon_sub = ""
                         loot_item = None
@@ -253,7 +259,7 @@ def main():
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             pass  # ignore, overlay still playing
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "":
-                        result = _handle_room(player, dungeon_run, dungeon_ui, snd)
+                        result = _handle_room(player, dungeon_run, dungeon_ui, snd, ach_manager)
                         if result == "rest":
                             dungeon_sub = "rest"
                         elif result == "shop":
@@ -297,10 +303,13 @@ def main():
                                         merge_into_stack(player.consumables, loot_item)
                                     else:
                                         player.inventory.append(loot_item)
+                                    ach_manager.inc("items_found")
+                                    if getattr(loot_item, "rarity", None) and loot_item.rarity.name == "LEGENDARY":
+                                        ach_manager.inc("legendaries_found")
                                     loot_item = None
                                 dungeon_ui.reset_chest()
                                 dungeon_sub = ""
-                                save_game(player, snd)
+                                save_game(player, snd, ach_manager)
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "rest":
                         # Advance past rest room
                         if dungeon_run.current and dungeon_run.current["cleared"]:
@@ -308,14 +317,16 @@ def main():
                     elif event.key == pygame.K_ESCAPE and dungeon_sub == "complete":
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
+                        ach_manager.inc("dungeons_completed")
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd)
+                        save_game(player, snd, ach_manager)
                         state = GameState.HUB
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "death":
+                        ach_manager.inc("deaths")
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd)
+                        save_game(player, snd, ach_manager)
                         state = GameState.HUB
                         dungeon_run = None
                     elif dungeon_sub == "complete" or dungeon_sub == "death":
@@ -348,12 +359,12 @@ def main():
                                     dungeon_run.mark_cleared()
                                     dungeon_sub = ""
                                     snd.play_hub_music()
-                                    save_game(player, snd)
+                                    save_game(player, snd, ach_manager)
                                     state = GameState.DUNGEON_ROOM
                                 else:
                                     hub_screen.start_fade_in()
                                     snd.play_hub_music()
-                                    save_game(player, snd)
+                                    save_game(player, snd, ach_manager)
                                     state = GameState.HUB
                         elif event.key == pygame.K_r:
                             combat.reset()
@@ -449,14 +460,18 @@ def main():
                 player = Character("Hero", max_hp=100, atk=15, defn=5)
                 if action == "continue":
                     load_game(player)  # Restore saved progress
+                    ach_manager.load()
                 else:
                     # New Game — delete old save and start fresh
                     if os.path.exists("save_data.json"):
                         os.remove("save_data.json")
-                hub_screen = HubScreen(screen, player)
+                    if os.path.exists("achievements.json"):
+                        os.remove("achievements.json")
+                    ach_manager.reset()
+                hub_screen = HubScreen(screen, player, ach_manager)
                 hub_screen.start_fade_in()
                 snd.play_hub_music()
-                save_game(player, snd)  # Ensure save exists on hub entry
+                save_game(player, snd, ach_manager)  # Ensure save exists on hub entry
                 state = GameState.HUB
 
         elif state == GameState.OPTIONS and options_screen is not None:
@@ -489,6 +504,12 @@ def main():
             if god_mode:
                 player.current_hp = player.max_hp
             combat.update(dt_ms)
+
+        # ── Achievement checks ────────────────────────────────────
+        if player is not None:
+            ach_manager.set("level_reached", player.level)
+            if player.get_active_sets():
+                ach_manager.unlock("set_bonus")
 
         # ── Rendering ─────────────────────────────────────────────
         if state == GameState.TITLE:
@@ -524,6 +545,15 @@ def main():
 
         elif state == GameState.BATTLE and combat is not None and ui is not None:
             ui.draw(combat, dt_ms)
+
+        # ── Achievement toasts (render above all states) ──────────
+        toast_finished = ach_toast.update(dt_ms)
+        if toast_finished or ach_toast.is_idle():
+            next_toast = ach_manager.pop_toast()
+            if next_toast:
+                ach_toast.show(next_toast)
+        if not ach_toast.is_idle():
+            ach_toast.draw(screen)
 
         pygame.display.flip()
 

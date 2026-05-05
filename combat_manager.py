@@ -65,13 +65,14 @@ class CombatManager:
 
     ENEMY_DELAY_MS = 1000
 
-    def __init__(self, player: Character, enemy: Enemy, sound_manager=None):
+    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None):
         self.player = player
         self.enemy = enemy
         self._state = TurnState.WAIT
         self._log: list[str] = []
         self._enemy_timer: int = 0
         self._snd = sound_manager
+        self._ach_manager = ach_manager
         self.in_dungeon = False  # set True when in a dungeon run
 
         # Menu selection tracking
@@ -350,6 +351,8 @@ class CombatManager:
         cost = skill.get("cost", 0)
         self.player.sp -= cost
         self._sfx("skill")
+        if self._ach_manager:
+            self._ach_manager.inc("skills_used")
 
         if skill.get("damage_mult", 0) > 0:
             # Damage skill (Star-Shatter Strike)
@@ -378,6 +381,8 @@ class CombatManager:
                 self._add_log(f"{self.player.name} is now Vulnerable!")
 
             if not self.enemy.is_alive:
+                if self._ach_manager:
+                    self._ach_manager.inc("kills")
                 self._award_xp()
                 self.state = TurnState.VICTORY
                 self._add_log(f"{self.enemy.name} defeated! Victory!")
@@ -402,6 +407,8 @@ class CombatManager:
             amount = random.randint(20, 40)
         self.player.gold += amount
         self._gold_dropped = amount
+        if self._ach_manager:
+            self._ach_manager.inc("gold_earned", amount)
         self._sfx("loot_drop")
         self._add_log(f"Dropped {amount} gold!")
 
@@ -412,6 +419,10 @@ class CombatManager:
             merge_into_stack(self.player.consumables, item)
         else:
             self.player.inventory.append(item)
+        if self._ach_manager:
+            self._ach_manager.inc("items_found")
+            if getattr(item, "rarity", None) and item.rarity.name == "LEGENDARY":
+                self._ach_manager.inc("legendaries_found")
         self._sfx("loot_drop")
         self._add_log(f"Dropped: {item}!")
 
@@ -462,6 +473,8 @@ class CombatManager:
         self._sfx("attack")
         if is_crit:
             self._sfx("crit")
+            if self._ach_manager:
+                self._ach_manager.inc("crits")
 
         crit_tag = "CRITICAL! " if is_crit else ""
         focus_tag = f"Astral Focus bonus: +{focused_bonus}! " if focused_bonus > 0 else ""
@@ -469,6 +482,8 @@ class CombatManager:
         self._shake_source = "player"
 
         if not self.enemy.is_alive:
+            if self._ach_manager:
+                self._ach_manager.inc("kills")
             self._award_xp()
             self.state = TurnState.VICTORY
             self._add_log(f"{self.enemy.name} defeated! Victory!")

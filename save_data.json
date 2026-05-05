@@ -1,15 +1,1059 @@
 {
-  "gold": 0,
-  "level": 1,
-  "xp": 0,
-  "xp_to_next": 50,
-  "base_atk": 15,
-  "base_def": 5,
-  "max_hp": 100,
+  "gold": 4260,
+  "level": 11,
+  "xp": 315,
+  "xp_to_next": 325,
+  "base_atk": 35,
+  "base_def": 15,
+  "max_hp": 200,
   "equipment": {
-    "weapon": null,
-    "armor": null
+    "weapon": {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 50,
+      "defense": 0,
+      "set_name": "Dragon"
+    },
+    "armor": {
+      "type": "armor",
+      "name": "Fine Scale",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 50,
+      "set_name": "Dragon"
+    }
   },
-  "inventory": [],
-  "consumables": []
+  "inventory": [
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Star-Mace",
+      "rarity": "LEGENDARY",
+      "atk": 24,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Dagger",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Flail",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Lamellar",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Lamellar",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Dagger",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Flail",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Robe",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Plate",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Iron Will"
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Axe",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Robe",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Mace",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Iron Will"
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Scimitar",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Star-Dagger",
+      "rarity": "LEGENDARY",
+      "atk": 24,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Blade",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Axe",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Plate",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Flail",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Axe",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Dagger",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Leather",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Grand Scale",
+      "rarity": "EPIC",
+      "atk": 0,
+      "defense": 8,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Robe",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Claymore",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Sword",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Guardian"
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Axe",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Leather",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Chainmail",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Chainmail",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Plate",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Grand Chainmail",
+      "rarity": "EPIC",
+      "atk": 0,
+      "defense": 8,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Blade",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Grand Hauberk",
+      "rarity": "EPIC",
+      "atk": 0,
+      "defense": 8,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Axe",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Sword",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Blade",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Star-Brigandine",
+      "rarity": "LEGENDARY",
+      "atk": 0,
+      "defense": 16,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Mace",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Grand Lamellar",
+      "rarity": "EPIC",
+      "atk": 0,
+      "defense": 8,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Fine Leather",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Mace",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Chainmail",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Robe",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Scale",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Robe",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Flail",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Sword",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    }
+  ],
+  "consumables": [
+    {
+      "name": "Grand Potion",
+      "rarity": "EPIC",
+      "hp_restore": 60,
+      "quantity": 4
+    },
+    {
+      "name": "Potion",
+      "rarity": "COMMON",
+      "hp_restore": 15,
+      "quantity": 11
+    }
+  ]
 }
