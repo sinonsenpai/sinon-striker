@@ -1,27 +1,27 @@
 {
   "unlocked": [
-    "massacre",
-    "merchant",
-    "delver",
-    "collector",
-    "novice",
-    "first_blood",
-    "slayer",
-    "warrior",
     "apothecary",
-    "gold_hoarder",
+    "merchant",
+    "novice",
     "set_bonus",
-    "legendary_find"
+    "gold_hoarder",
+    "first_blood",
+    "massacre",
+    "collector",
+    "legendary_find",
+    "warrior",
+    "slayer",
+    "delver"
   ],
   "counters": {
-    "level_reached": 12,
+    "level_reached": 13,
     "deepest_floor": 1,
-    "kills": 158,
-    "gold_earned": 4510,
-    "items_found": 164,
+    "kills": 162,
+    "gold_earned": 4625,
+    "items_found": 170,
     "legendaries_found": 3,
     "crits": 7,
-    "dungeons_completed": 6,
+    "dungeons_completed": 7,
     "skills_used": 1
   }
 }

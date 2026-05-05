@@ -1,11 +1,12 @@
 {
-  "gold": 4913,
-  "level": 12,
-  "xp": 310,
-  "xp_to_next": 350,
-  "base_atk": 37,
-  "base_def": 16,
-  "max_hp": 210,
+  "gold": 5108,
+  "level": 13,
+  "xp": 105,
+  "xp_to_next": 375,
+  "base_atk": 39,
+  "base_def": 17,
+  "max_hp": 220,
+  "current_floor": 2,
   "equipment": {
     "weapon": {
       "type": "weapon",
@@ -1208,6 +1209,46 @@
       "atk": 3,
       "defense": 0,
       "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Mace",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Axe",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
     }
   ],
   "consumables": [
@@ -1221,7 +1262,7 @@
       "name": "Potion",
       "rarity": "COMMON",
       "hp_restore": 15,
-      "quantity": 11
+      "quantity": 12
     },
     {
       "name": "Small Potion",
