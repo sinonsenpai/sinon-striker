@@ -166,14 +166,16 @@ def main():
                 elif state == GameState.HUB and hub_screen is not None:
                     sub = hub_screen.sub_state
                     if sub == HubSubState.MAIN:
-                        if event.key in (pygame.K_LEFT, pygame.K_a):
+                        if event.key == pygame.K_LEFT:
                             hub_screen.move_left()
-                        elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        elif event.key == pygame.K_RIGHT:
                             hub_screen.move_right()
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             result = hub_screen.confirm()
                             if result == "battle":
                                 pass  # handled in update
+                        elif event.key == pygame.K_a:
+                            hub_screen.open_achievements()
                         elif event.key == pygame.K_ESCAPE:
                             hub_screen.cancel()
 
@@ -213,6 +215,15 @@ def main():
 
                     elif sub == HubSubState.TOAST:
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                            hub_screen.cancel()
+                            save_game(player, snd, ach_manager)
+
+                    elif sub == HubSubState.ACHIEVEMENTS:
+                        if event.key in (pygame.K_w, pygame.K_UP):
+                            hub_screen.achievements_move_up()
+                        elif event.key in (pygame.K_s, pygame.K_DOWN):
+                            hub_screen.achievements_move_down()
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                             hub_screen.cancel()
                             save_game(player, snd, ach_manager)
 

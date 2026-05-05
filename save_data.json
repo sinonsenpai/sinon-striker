@@ -1,5 +1,5 @@
 {
-  "gold": 4260,
+  "gold": 4223,
   "level": 11,
   "xp": 315,
   "xp_to_next": 325,
@@ -25,14 +25,6 @@
     }
   },
   "inventory": [
-    {
-      "type": "weapon",
-      "name": "Flail",
-      "rarity": "COMMON",
-      "atk": 3,
-      "defense": 0,
-      "set_name": null
-    },
     {
       "type": "weapon",
       "name": "Axe",
@@ -1054,6 +1046,12 @@
       "rarity": "COMMON",
       "hp_restore": 15,
       "quantity": 11
+    },
+    {
+      "name": "Small Potion",
+      "rarity": "COMMON",
+      "hp_restore": 30,
+      "quantity": 1
     }
   ]
 }

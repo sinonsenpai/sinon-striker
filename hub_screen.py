@@ -8,6 +8,7 @@ import pygame
 from enum import Enum, auto
 from item import Rarity, ItemSlot
 from sprites import get_hub_sinon
+import achievements
 
 
 # ── Palette ────────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ class HubSubState(Enum):
     APOTHECARY = auto()
     RETURN_PROMPT = auto()
     TOAST = auto()
+    ACHIEVEMENTS = auto()
 
 
 # ── Location data ──────────────────────────────────────────────────────
@@ -54,8 +56,8 @@ LOCATIONS = [
     {"name": "Rest",         "icon": "moon",    "desc": "Restore HP & SP",       "key": "rest"},
 ]
 
-CARD_W, CARD_H = 165, 135
-CARD_GAP = 18
+CARD_W, CARD_H = 145, 135
+CARD_GAP = 10
 CARD_LIFT = 4
 
 # ── Shop data ───────────────────────────────────────────────────────────
@@ -152,6 +154,10 @@ class HubScreen:
         self._shop_toast_timer = 0
         self._shop_toast_text = ""
 
+        # ── Achievement viewer state ──
+        self._ach_cursor = 0
+        self._ach_scroll_offset = 0
+
         # ── Fade ──
         self.fade_alpha = 0.0           # 0..255
         self._fade_target = 0.0
@@ -192,11 +198,15 @@ class HubScreen:
         elif key == "rest":
             self._do_rest()
 
+    def open_achievements(self):
+        if self.sub_state == HubSubState.MAIN:
+            self._enter_achievements()
+
     def cancel(self):
         """ESC pressed. Behaviour depends on sub-state."""
         if self.sub_state == HubSubState.MAIN:
             self.sub_state = HubSubState.RETURN_PROMPT
-        elif self.sub_state in (HubSubState.APOTHECARY, HubSubState.SMITHY_INVENTORY):
+        elif self.sub_state in (HubSubState.APOTHECARY, HubSubState.SMITHY_INVENTORY, HubSubState.ACHIEVEMENTS):
             self.sub_state = HubSubState.MAIN
         elif self.sub_state == HubSubState.RETURN_PROMPT:
             self.sub_state = HubSubState.MAIN
@@ -425,7 +435,7 @@ class HubScreen:
 
         # ── Hint ──
         if self.sub_state == HubSubState.MAIN:
-            hint = self.font_hint.render("[LEFT/RIGHT] Navigate   [ENTER] Select   [ESC] Leave", True, (90, 90, 115))
+            hint = self.font_hint.render("[LEFT/RIGHT] Navigate   [ENTER] Select   [A] Achievements   [ESC] Leave", True, (90, 90, 115))
             self.screen.blit(hint, ((self.w - hint.get_width()) // 2, self.h - 28))
 
         # ── Sub-state overlays ──
@@ -437,6 +447,8 @@ class HubScreen:
             self._draw_return_prompt()
         elif self.sub_state == HubSubState.TOAST:
             self._draw_toast()
+        elif self.sub_state == HubSubState.ACHIEVEMENTS:
+            self._draw_achievements()
 
         # ── Fade overlay ──
         if self.fade_alpha > 1:
@@ -827,6 +839,166 @@ class HubScreen:
         return text + "..."
 
     # ------------------------------------------------------------------ #
+    #  Achievement viewer                                                #
+    # ------------------------------------------------------------------ #
+
+    def _enter_achievements(self):
+        self._ach_cursor = 0
+        self._ach_scroll_offset = 0
+        self.sub_state = HubSubState.ACHIEVEMENTS
+
+    def achievements_move_up(self):
+        if self.sub_state != HubSubState.ACHIEVEMENTS:
+            return
+        defs = achievements.ACHIEVEMENT_DEFS
+        if not defs:
+            return
+        self._ach_cursor = (self._ach_cursor - 1) % len(defs)
+        if self._ach_cursor < self._ach_scroll_offset:
+            self._ach_scroll_offset = self._ach_cursor
+
+    def achievements_move_down(self):
+        if self.sub_state != HubSubState.ACHIEVEMENTS:
+            return
+        defs = achievements.ACHIEVEMENT_DEFS
+        if not defs:
+            return
+        self._ach_cursor = (self._ach_cursor + 1) % len(defs)
+        max_visible = 5  # approximate; refined in draw
+        if self._ach_cursor >= self._ach_scroll_offset + max_visible:
+            self._ach_scroll_offset = self._ach_cursor - max_visible + 1
+
+    def _draw_achievements(self):
+        defs = achievements.ACHIEVEMENT_DEFS
+        if not defs:
+            return
+
+        # Dark translucent overlay
+        overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # Title
+        title = self.font_banner.render("ACHIEVEMENTS", True, GOLD)
+        tx = (self.w - title.get_width()) // 2
+        ty = 20
+        self.screen.blit(title, (tx, ty))
+
+        # Progress counter
+        total = len(defs)
+        unlocked_count = len(self._ach_manager.unlocked) if self._ach_manager else 0
+        progress_text = f"{unlocked_count} / {total} Unlocked"
+        progress_surf = self.font_small.render(progress_text, True, DIM_WHITE)
+        px = (self.w - progress_surf.get_width()) // 2
+        py = ty + title.get_height() + 4
+        self.screen.blit(progress_surf, (px, py))
+
+        # List layout
+        list_top = py + progress_surf.get_height() + 16
+        list_bottom = self.h - 40  # room for hint
+        list_h = list_bottom - list_top
+        card_h = 82
+        card_gap = 8
+        card_w = 700
+        card_x = (self.w - card_w) // 2
+
+        max_visible = max(1, list_h // (card_h + card_gap))
+
+        # Clamp scroll offset
+        max_scroll = max(0, len(defs) - max_visible)
+        self._ach_scroll_offset = max(0, min(self._ach_scroll_offset, max_scroll))
+        if self._ach_cursor < self._ach_scroll_offset:
+            self._ach_scroll_offset = self._ach_cursor
+        if self._ach_cursor >= self._ach_scroll_offset + max_visible:
+            self._ach_scroll_offset = self._ach_cursor - max_visible + 1
+        self._ach_scroll_offset = max(0, min(self._ach_scroll_offset, max_scroll))
+
+        # Hint
+        hint = self.font_hint.render("[W/S] Scroll   [ENTER/ESC] Close", True, (100, 100, 130))
+        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, list_bottom + 12))
+
+        # Clip list area
+        clip_rect = pygame.Rect(card_x, list_top, card_w, list_h)
+        old_clip = self.screen.get_clip()
+        self.screen.set_clip(clip_rect)
+
+        for i, ach in enumerate(defs):
+            cy = list_top + i * (card_h + card_gap) - self._ach_scroll_offset * (card_h + card_gap)
+            if cy + card_h < list_top or cy > list_bottom:
+                continue
+
+            is_unlocked = self._ach_manager and ach["id"] in self._ach_manager.unlocked
+            is_selected = i == self._ach_cursor
+
+            # Card background
+            card_bg = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            bg_alpha = 200 if is_selected else 160
+            card_bg.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], bg_alpha))
+            self.screen.blit(card_bg, (card_x, cy))
+
+            # Border
+            border_color = NEON_CYAN if is_selected else NEON_CYAN_DIM
+            pygame.draw.rect(self.screen, border_color, (card_x, cy, card_w, card_h), 1, border_radius=6)
+
+            # Selection pulse
+            if is_selected:
+                pulse = 0.7 + 0.3 * math.sin(self._elapsed_ms * 0.005)
+                sel_overlay = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+                sel_overlay.fill((*NEON_CYAN, int(20 * pulse)))
+                self.screen.blit(sel_overlay, (card_x, cy))
+
+            # Icon (emoji)
+            icon_color = GOLD if is_unlocked else (100, 100, 110)
+            icon_surf = self.font_icon.render(ach.get("icon", "🏆"), True, icon_color)
+            ix = card_x + 20
+            iy = cy + (card_h - icon_surf.get_height()) // 2
+            self.screen.blit(icon_surf, (ix, iy))
+
+            # Name
+            name_color = GOLD if is_unlocked else WHITE
+            name_surf = self.font_card_name.render(ach["name"], True, name_color)
+            nx = card_x + 70
+            ny = cy + 14
+            self.screen.blit(name_surf, (nx, ny))
+
+            # Description
+            desc_surf = self.font_card_desc.render(ach["desc"], True, DIM_WHITE)
+            self.screen.blit(desc_surf, (nx, ny + name_surf.get_height() + 4))
+
+            # Progress bar or UNLOCKED badge
+            if is_unlocked:
+                badge_text = "UNLOCKED"
+                badge_surf = self.font_small.render(badge_text, True, GOLD)
+                bx = card_x + card_w - badge_surf.get_width() - 18
+                by = cy + card_h - badge_surf.get_height() - 14
+                self.screen.blit(badge_surf, (bx, by))
+            else:
+                counter = ach.get("counter")
+                threshold = ach.get("threshold")
+                if counter and threshold:
+                    current = self._ach_manager.counters.get(counter, 0) if self._ach_manager else 0
+                    progress = min(1.0, current / threshold) if threshold > 0 else 0.0
+
+                    bar_w = 140
+                    bar_h = 8
+                    bar_x = card_x + card_w - bar_w - 18
+                    bar_y = cy + card_h - 28
+
+                    # Bar bg
+                    pygame.draw.rect(self.screen, (30, 30, 45), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+                    # Bar fill
+                    fill_w = int(bar_w * progress)
+                    if fill_w > 0:
+                        pygame.draw.rect(self.screen, NEON_CYAN, (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+
+                    # Text
+                    prog_text = f"{current} / {threshold}"
+                    prog_surf = self.font_small.render(prog_text, True, DIM_WHITE)
+                    self.screen.blit(prog_surf, (bar_x + bar_w - prog_surf.get_width(), bar_y - prog_surf.get_height() - 2))
+
+        self.screen.set_clip(old_clip)
+
+    # ------------------------------------------------------------------ #
     #  Return prompt                                                     #
     # ------------------------------------------------------------------ #
 
@@ -915,6 +1087,11 @@ class HubScreen:
             # Simple bed / rest icon
             pygame.draw.rect(s, color, (4, 16, 22, 8), border_radius=2)
             pygame.draw.rect(s, color, (6, 10, 8, 8), border_radius=2)
+        elif icon_type == "book":
+            # Open book: two facing pages with center spine
+            pygame.draw.rect(s, color, (2, 3, 12, 22), border_radius=1, width=2)
+            pygame.draw.rect(s, color, (16, 3, 12, 22), border_radius=1, width=2)
+            pygame.draw.line(s, color, (15, 3), (15, 25), 2)
         self.screen.blit(s, (cx - 15, cy))
 
     def _start_fade(self, target: float, duration_sec: float):

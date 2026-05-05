@@ -1,15 +1,17 @@
 {
   "unlocked": [
-    "collector",
-    "first_blood",
-    "novice",
-    "gold_hoarder",
-    "warrior",
     "delver",
-    "massacre",
-    "set_bonus",
     "legendary_find",
-    "slayer"
+    "gold_hoarder",
+    "set_bonus",
+    "slayer",
+    "massacre",
+    "apothecary",
+    "merchant",
+    "warrior",
+    "collector",
+    "novice",
+    "first_blood"
   ],
   "counters": {
     "level_reached": 11,
