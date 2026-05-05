@@ -334,7 +334,9 @@ def main():
                     elif event.key == pygame.K_ESCAPE and dungeon_sub == "complete":
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
+                        current_floor += 1
                         ach_manager.inc("dungeons_completed")
+                        dungeon_sub = ""
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         save_game(player, snd, ach_manager, current_floor)
