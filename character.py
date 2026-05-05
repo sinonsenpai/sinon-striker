@@ -189,6 +189,8 @@ class Character:
 class Enemy(Character):
     """Simple enemy - identical stats to Character but semantically distinct."""
 
-    def __init__(self, name: str, max_hp: int, atk: int, defn: int = 0, xp_reward: int = 0):
+    def __init__(self, name: str, max_hp: int, atk: int, defn: int = 0, xp_reward: int = 0, gold_min: int = 20, gold_max: int = 40):
         super().__init__(name, max_hp, atk, defn)
         self.xp_reward = xp_reward
+        self.gold_min = gold_min
+        self.gold_max = gold_max

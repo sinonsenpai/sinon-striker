@@ -149,13 +149,21 @@ class DungeonUI:
 
         # Action hint
         hint = self._room_hint(room)
-        hint_surf = self.font_medium.render(hint, True, NEON_CYAN if rtype != RoomType.EXIT else GOLD)
+        hint_color = GOLD if rtype == RoomType.EXIT else (RED if rtype == RoomType.BOSS else NEON_CYAN)
+        hint_surf = self.font_medium.render(hint, True, hint_color)
         self.screen.blit(hint_surf, ((self.w - hint_surf.get_width()) // 2, 240))
 
         # HP/SP summary
         p = self.run.player
         hp_sp = self.font_small.render(f"HP: {p.current_hp}/{p.max_hp}   SP: {p.sp}/{p.max_sp}", True, WHITE)
         self.screen.blit(hp_sp, ((self.w - hp_sp.get_width()) // 2, 280))
+
+        # Boss room pulsing red border overlay
+        if rtype == RoomType.BOSS:
+            pulse = 0.6 + 0.4 * math.sin(self._elapsed * 0.006)
+            border_surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+            pygame.draw.rect(border_surf, (255, 60, 60, int(40 * pulse)), (8, 8, self.w - 16, self.h - 16), width=4, border_radius=10)
+            self.screen.blit(border_surf, (0, 0))
 
         if rtype == RoomType.SHOP:
             self._draw_dungeon_shop()
@@ -170,6 +178,9 @@ class DungeonUI:
         elif rtype == RoomType.ELITE:
             enemy = ENEMY_POOL.get(room["enemy"], {})
             return f"A powerful {enemy.get('name', 'foe')} awaits!"
+        elif rtype == RoomType.BOSS:
+            enemy = ENEMY_POOL.get(room["enemy"], {})
+            return f"BOSS: {enemy.get('name', 'foe')} stands before you!"
         elif rtype == RoomType.LOOT:
             return "A treasure chest glimmers in the dark."
         elif rtype == RoomType.REST:
@@ -185,6 +196,7 @@ class DungeonUI:
         hints = {
             RoomType.COMBAT: "Press ENTER to fight",
             RoomType.ELITE: "Press ENTER to challenge",
+            RoomType.BOSS: "Press ENTER to confront the boss",
             RoomType.LOOT: "Press ENTER to open",
             RoomType.REST: "Press ENTER to rest",
             RoomType.SHOP: "Press ENTER to open shop",
@@ -580,7 +592,10 @@ class DungeonUI:
 
             # Risk / Reward hints
             hint_y = card_y + card_h - 52
-            if rtype in (RoomType.COMBAT, RoomType.ELITE):
+            if rtype == RoomType.BOSS:
+                risk = "Risk: EXTREME"
+                reward = "Reward: Rare+ Gear"
+            elif rtype in (RoomType.COMBAT, RoomType.ELITE):
                 risk = "Risk: High" if rtype == RoomType.ELITE else "Risk: Low"
                 reward = "Reward: XP + Gold"
             elif rtype == RoomType.LOOT:
@@ -655,4 +670,16 @@ class DungeonUI:
                 (half + size // 5, size - 4), (half - size // 5, size - 4),
                 (half - size // 5, size // 2), (4, size // 2)
             ])
+        elif icon_type == "boss":
+            # Skull-like shape: two eye circles + jaw line
+            head_r = half - 4
+            pygame.draw.circle(s, color, (half, half - 2), head_r, max(1, size // 10))
+            # Eyes
+            eye_r = max(2, size // 8)
+            pygame.draw.circle(s, color, (half - 4, half - 4), eye_r)
+            pygame.draw.circle(s, color, (half + 4, half - 4), eye_r)
+            # Jaw / mouth
+            jaw_y = half + 5
+            pygame.draw.line(s, color, (half - 5, jaw_y), (half + 5, jaw_y), max(1, size // 12))
+            pygame.draw.line(s, color, (half - 3, jaw_y + 3), (half + 3, jaw_y + 3), max(1, size // 12))
         self.screen.blit(s, (cx - half, cy - half))

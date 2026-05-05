@@ -1,11 +1,11 @@
 {
-  "gold": 4223,
-  "level": 11,
-  "xp": 315,
-  "xp_to_next": 325,
-  "base_atk": 35,
-  "base_def": 15,
-  "max_hp": 200,
+  "gold": 4913,
+  "level": 12,
+  "xp": 310,
+  "xp_to_next": 350,
+  "base_atk": 37,
+  "base_def": 16,
+  "max_hp": 210,
   "equipment": {
     "weapon": {
       "type": "weapon",
@@ -1020,6 +1020,182 @@
     {
       "type": "armor",
       "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Scale",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Chainmail",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Grand Scale",
+      "rarity": "EPIC",
+      "atk": 0,
+      "defense": 8,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Plate",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": "Iron Will"
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Blade",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Leather",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Robe",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Chainmail",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Axe",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Hauberk",
       "rarity": "COMMON",
       "atk": 0,
       "defense": 2,

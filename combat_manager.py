@@ -65,7 +65,7 @@ class CombatManager:
 
     ENEMY_DELAY_MS = 1000
 
-    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None):
+    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None, is_boss: bool = False):
         self.player = player
         self.enemy = enemy
         self._state = TurnState.WAIT
@@ -74,6 +74,7 @@ class CombatManager:
         self._snd = sound_manager
         self._ach_manager = ach_manager
         self.in_dungeon = False  # set True when in a dungeon run
+        self.is_boss = is_boss
 
         # Menu selection tracking
         self.selected_index: int = 0
@@ -91,6 +92,7 @@ class CombatManager:
         self._last_hit_info = None
         self._shake_source = None
         self._enemy_turn_count: int = 0
+        self._boss_phase2_triggered: bool = False
 
         # Kick off the first round
         self._advance_to_menu()
@@ -401,10 +403,9 @@ class CombatManager:
 
     def _award_gold(self):
         """Roll a random gold drop based on enemy type."""
-        if self.enemy.name == "Vanguard Brute":
-            amount = random.randint(25, 50)
-        else:
-            amount = random.randint(20, 40)
+        g_min = getattr(self.enemy, 'gold_min', 20)
+        g_max = getattr(self.enemy, 'gold_max', 40)
+        amount = random.randint(g_min, g_max)
         self.player.gold += amount
         self._gold_dropped = amount
         if self._ach_manager:
@@ -415,6 +416,11 @@ class CombatManager:
     def _drop_loot(self):
         """Generate a random loot drop and add it to the player's inventory or consumables."""
         item = LootGenerator.generate()
+        # Boss guarantees Rare+ drop
+        if self.is_boss:
+            from item import Rarity
+            while getattr(item, "rarity", None) == Rarity.COMMON:
+                item = LootGenerator.generate()
         if isinstance(item, Consumable):
             merge_into_stack(self.player.consumables, item)
         else:
@@ -494,15 +500,26 @@ class CombatManager:
             self._advance_to_enemy_turn()
 
     def _enemy_attack(self):
-        """Enemy attacks the player — Vanguard Brute uses Brute Smash every 3 turns."""
+        """Enemy attacks the player — Vanguard Brute uses Brute Smash every 3 turns.
+        Bosses trigger Phase 2 at 50% HP and use Warden's Wrath every 3 turns."""
         self._enemy_turn_count += 1
         total_atk = self.enemy.atk
         total_def = self.player.defn
 
+        # Boss Phase 2 trigger
+        if self.is_boss and not self._boss_phase2_triggered:
+            if self.enemy.current_hp <= self.enemy.max_hp * 0.5:
+                self._boss_phase2_triggered = True
+                self.enemy._base_atk = int(self.enemy._base_atk * 1.5)
+                self._add_log("The Abyssal Warden roars and enters Phase 2!")
+                self._sfx("enemy_turn")
+
         # Brute Smash: every 3 turns, 1.5x damage
         is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0
-        mult = 1.5 if is_smash else 1.0
-        skill_name = "Brute Smash! " if is_smash else ""
+        # Boss Warden's Wrath: every 3 turns, 2x damage
+        is_wrath = self.is_boss and self._enemy_turn_count % 3 == 0
+        mult = 2.0 if is_wrath else (1.5 if is_smash else 1.0)
+        skill_name = "Warden's Wrath! " if is_wrath else ("Brute Smash! " if is_smash else "")
 
         damage = max(1, int(total_atk * mult - total_def))
         actual = self.player.take_damage(damage)
@@ -545,4 +562,5 @@ class CombatManager:
         self._last_hit_info = None
         self._shake_source = None
         self._enemy_turn_count = 0
+        self._boss_phase2_triggered = False
         self._advance_to_menu()

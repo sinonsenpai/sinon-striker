@@ -13,6 +13,7 @@ class RoomType(Enum):
     REST = auto()
     SHOP = auto()
     EXIT = auto()
+    BOSS = auto()
 
 
 ROOM_ICONS = {
@@ -22,6 +23,7 @@ ROOM_ICONS = {
     RoomType.REST: "rest",
     RoomType.SHOP: "shop",
     RoomType.EXIT: "exit",
+    RoomType.BOSS: "boss",
 }
 
 ROOM_COLORS = {
@@ -31,6 +33,7 @@ ROOM_COLORS = {
     RoomType.REST: (50, 210, 100),
     RoomType.SHOP: (0, 240, 255),
     RoomType.EXIT: (255, 215, 0),
+    RoomType.BOSS: (255, 60, 60),
 }
 
 ROOM_LABELS = {
@@ -40,6 +43,7 @@ ROOM_LABELS = {
     RoomType.REST: "Rest",
     RoomType.SHOP: "Shop",
     RoomType.EXIT: "Exit",
+    RoomType.BOSS: "Boss",
 }
 
 FLAVOR = {
@@ -73,6 +77,11 @@ FLAVOR = {
         "A way out shimmers in the distance.",
         "Daylight peeks through a crack ahead.",
     ],
+    RoomType.BOSS: [
+        "A menacing presence looms ahead...",
+        "The ground shakes with mighty footsteps.",
+        "An aura of pure dread emanates from beyond.",
+    ],
 }
 
 BRANCH_POINTS = {2, 4}
@@ -81,6 +90,7 @@ ENEMY_POOL = {
     "slime": {"name": "Slime", "hp": 50, "atk": 8, "defn": 3, "gold_min": 10, "gold_max": 20, "xp_reward": 15},
     "dragon": {"name": "Dragon", "hp": 80, "atk": 14, "defn": 6, "gold_min": 20, "gold_max": 40, "xp_reward": 30},
     "brute": {"name": "Vanguard Brute", "hp": 120, "atk": 18, "defn": 8, "gold_min": 25, "gold_max": 50, "xp_reward": 50},
+    "abyssal_warden": {"name": "Abyssal Warden", "hp": 250, "atk": 25, "defn": 12, "gold_min": 80, "gold_max": 150, "xp_reward": 100},
 }
 
 
@@ -101,6 +111,15 @@ def generate_dungeon(floor: int) -> list:
     mid_count = random.randint(2, 4)
     for _ in range(mid_count):
         rooms.append(_generate_room(floor))
+
+    # Boss floor: replace the last mid room with a boss room
+    if floor % 5 == 0 and mid_count >= 1:
+        rooms[-2] = {
+            "type": RoomType.BOSS,
+            "enemy": "abyssal_warden",
+            "cleared": False,
+            "flavor": random.choice(FLAVOR[RoomType.BOSS]),
+        }
 
     # Final room: exit
     rooms.append({

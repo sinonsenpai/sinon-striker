@@ -56,8 +56,8 @@ LOCATIONS = [
     {"name": "Rest",         "icon": "moon",    "desc": "Restore HP & SP",       "key": "rest"},
 ]
 
-CARD_W, CARD_H = 145, 135
-CARD_GAP = 10
+CARD_W, CARD_H = 175, 135
+CARD_GAP = 22
 CARD_LIFT = 4
 
 # ── Shop data ───────────────────────────────────────────────────────────

@@ -483,7 +483,7 @@ class BattleUI:
         self._draw_hud(combat.player, edge_pad, inner_top, hud_w)
 
         # Enemy HUD — top-right
-        self._draw_hud(combat.enemy, self.w - hud_w - edge_pad, inner_top, hud_w)
+        self._draw_hud(combat.enemy, self.w - hud_w - edge_pad, inner_top, hud_w, is_boss=getattr(combat, 'is_boss', False))
 
         # Character sprites in center of stage
         sprite_y = inner_top + int(inner_h * 0.90)
@@ -524,7 +524,10 @@ class BattleUI:
         self.screen.blit(border, (px, py))
 
         is_victory = combat.state == TurnState.VICTORY
-        title_text = "VICTORY!" if is_victory else "DEFEATED"
+        if is_victory and getattr(combat, 'is_boss', False):
+            title_text = "BOSS DEFEATED!"
+        else:
+            title_text = "VICTORY!" if is_victory else "DEFEATED"
         title_color = GOLD if is_victory else RED
 
         title_surf = self.font_victory.render(title_text, True, title_color)
@@ -652,7 +655,7 @@ class BattleUI:
         else:
             self.screen.blit(full_surf, (px, py))
 
-    def _draw_hud(self, char, x: int, y: int, hud_w: int):
+    def _draw_hud(self, char, x: int, y: int, hud_w: int, is_boss: bool = False):
         """Draw a character stat panel with padded layout.
            Row 1: Name (centered)
            Row 2: HP bar with label
@@ -676,7 +679,8 @@ class BattleUI:
         weapon = char.equipment.get("weapon")
         armor = char.equipment.get("armor")
 
-        name_surf = self.font_medium.render(char.name, True, WHITE)
+        name_color = RED if is_boss else WHITE
+        name_surf = self.font_medium.render(char.name, True, name_color)
 
         # ── Calculate dynamic height ──
         name_h = name_surf.get_height()
@@ -698,13 +702,23 @@ class BattleUI:
         panel_h = content_h + m * 2
 
         # ── Glass panel (with status-based border color) ──
-        border_color = NEON_CYAN
-        if char.has_status("focused"):
-            border_color = GOLD
-        elif char.has_status("vulnerable"):
-            border_color = RED
+        border_color = RED if is_boss else NEON_CYAN
+        if not is_boss:
+            if char.has_status("focused"):
+                border_color = GOLD
+            elif char.has_status("vulnerable"):
+                border_color = RED
         self._draw_glass_panel(x, y, hud_w, panel_h, border_color=border_color, border_alpha=220,
-                               border_width=2 if char.status_effects else 1, corner_radius=7)
+                               border_width=3 if is_boss else (2 if char.status_effects else 1), corner_radius=7)
+
+        # Boss tint overlay
+        if is_boss:
+            boss_tint = pygame.Surface((hud_w, panel_h), pygame.SRCALPHA)
+            boss_tint.fill((*RED, 20))
+            self.screen.blit(boss_tint, (x, y))
+            # BOSS label
+            boss_label = self.font_hud.render("BOSS", True, RED)
+            self.screen.blit(boss_label, (x + hud_w - boss_label.get_width() - 10, y + 6))
 
         # Status tint overlay
         if char.has_status("focused"):
@@ -734,7 +748,10 @@ class BattleUI:
         pygame.draw.rect(hp_bar_surf, (55, 10, 10, 200), (0, 0, bar_w, bar_h), border_radius=4)
         fill_w = min(bar_w, max(0, int(bar_w * hp_pct)))
         if fill_w > 0:
-            fill_color = GREEN if hp_pct > 0.3 else RED
+            if is_boss:
+                fill_color = (220, 40, 40)
+            else:
+                fill_color = GREEN if hp_pct > 0.3 else RED
             pygame.draw.rect(hp_bar_surf, (*fill_color, 220), (0, 0, fill_w, bar_h), border_radius=4)
         self.screen.blit(hp_bar_surf, (bar_x, bar_y))
         # Label on the left
