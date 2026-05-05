@@ -84,7 +84,12 @@ class DungeonUI:
         self.screen.blit(title, ((self.w - title.get_width()) // 2, py + 20))
 
         floor_num = self.run.floor if self.run else 1
-        floor = self.font_large.render(f"Floor {floor_num}", True, GOLD)
+        is_boss_floor = floor_num % 5 == 0
+        floor_text = f"Floor {floor_num}"
+        if is_boss_floor:
+            floor_text += " - Boss Floor!"
+        floor_color = RED if is_boss_floor else GOLD
+        floor = self.font_large.render(floor_text, True, floor_color)
         self.screen.blit(floor, ((self.w - floor.get_width()) // 2, py + 70))
 
         info_lines = ["~5 rooms", "Recommended Gear: Any", "No HP/SP restore between rooms"]

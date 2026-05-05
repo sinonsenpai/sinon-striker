@@ -11,7 +11,7 @@ SAVE_FILE = "save_data.json"
 SETTINGS_FILE = "settings.json"
 
 
-def save_game(player, snd=None, ach_manager=None):
+def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
     """Save all player progress to JSON."""
     if ach_manager is not None:
         ach_manager.save()
@@ -23,6 +23,7 @@ def save_game(player, snd=None, ach_manager=None):
         "base_atk": player._base_atk,
         "base_def": player._base_def,
         "max_hp": player.max_hp,
+        "current_floor": current_floor,
         "equipment": {
             "weapon": serialize_item(player.equipment.get("weapon")),
             "armor": serialize_item(player.equipment.get("armor")),
@@ -35,9 +36,9 @@ def save_game(player, snd=None, ach_manager=None):
 
 
 def load_game(player):
-    """Load saved progress into the player object. Returns True if save existed."""
+    """Load saved progress into the player object. Returns (loaded, current_floor)."""
     if not os.path.exists(SAVE_FILE):
-        return False
+        return False, 1
     with open(SAVE_FILE) as f:
         data = json.load(f)
 
@@ -65,7 +66,7 @@ def load_game(player):
         if item:
             merge_into_stack(player.consumables, item)
 
-    return True
+    return True, data.get("current_floor", 1)
 
 
 def serialize_item(item):
