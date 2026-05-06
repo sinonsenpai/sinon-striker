@@ -1,24 +1,26 @@
 {
   "unlocked": [
-    "first_blood",
     "slayer",
+    "first_blood",
     "novice",
-    "deep_trek",
-    "deaths_door",
-    "set_bonus",
     "collector",
+    "deaths_door",
     "delver",
-    "merchant"
+    "set_bonus",
+    "skill_surge",
+    "gold_hoarder",
+    "merchant",
+    "deep_trek"
   ],
   "counters": {
-    "level_reached": 6,
+    "level_reached": 8,
     "deepest_floor": 6,
-    "kills": 20,
-    "gold_earned": 770,
-    "items_found": 27,
-    "crits": 6,
+    "kills": 28,
+    "gold_earned": 1115,
+    "items_found": 39,
+    "crits": 7,
     "deaths": 2,
-    "skills_used": 3,
-    "dungeons_completed": 6
+    "skills_used": 13,
+    "dungeons_completed": 8
   }
 }

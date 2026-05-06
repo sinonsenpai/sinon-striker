@@ -57,6 +57,31 @@ SKILL_DEFS = [
         "buff": "focused",
         "buff_duration": 3,
     },
+    {
+        "name": "Blazing Strike",
+        "cost": 15,
+        "damage_mult": 1.8,
+        "desc": "1.8x ATK  |  Burn 3 turns (8 dmg)",
+        "status_effect": "burn",
+        "status_duration": 3,
+        "status_data": {"potency": 8},
+    },
+    {
+        "name": "Venom Strike",
+        "cost": 12,
+        "damage_mult": 1.2,
+        "desc": "1.2x ATK  |  Poison 3 turns (stacks)",
+        "status_effect": "poison",
+        "status_duration": 3,
+    },
+    {
+        "name": "Shockwave",
+        "cost": 18,
+        "damage_mult": 1.5,
+        "desc": "1.5x ATK  |  Stun (skip next turn)",
+        "status_effect": "stun",
+        "status_duration": 1,
+    },
 ]
 
 
@@ -91,6 +116,7 @@ class CombatManager:
         self._level_ups: list = []
         self.victory_phase: str = "rewards"  # "rewards" or "level_up"
         self._last_hit_info = None
+        self._last_status_tick = None
         self._shake_source = None
         self._enemy_turn_count: int = 0
         self._boss_phase2_triggered: bool = False
@@ -389,8 +415,16 @@ class CombatManager:
 
             # Self-debuff
             if "self_effect" in skill:
-                self.player.add_status(skill["self_effect"], "debuff", skill.get("self_effect_duration", 1))
+                self.player.add_status(skill["self_effect"], "debuff", skill.get("self_effect_duration", 1), {})
                 self._add_log(f"{self.player.name} is now Vulnerable!")
+
+            # Status effect application on enemy (damage skills only)
+            if skill.get("status_effect") and self.enemy.is_alive:
+                effect = skill["status_effect"]
+                dur = skill.get("status_duration", 3)
+                data = skill.get("status_data", None)
+                self.enemy.add_status(effect, "debuff", dur, data or {})
+                self._add_log(f"{self.enemy.name} is now afflicted with {effect}!")
 
             if not self.enemy.is_alive:
                 if self._ach_manager:
@@ -465,17 +499,68 @@ class CombatManager:
         self._log.append(msg)
 
     def _advance_to_menu(self):
-        """Transition to MENU_SELECT (player browses command menu)."""
+        """Transition to MENU_SELECT — process player status effects first."""
         self.player.tick_cooldowns()
-        self.player.tick_status_effects()
+        result = self.player.tick_status_effects()
+        result["target"] = "player"
+        self._last_status_tick = result
+
+        for msg in result["messages"]:
+            if msg[0] == "burn":
+                self._add_log(f"Burn deals {msg[1]} damage to {self.player.name}!")
+            elif msg[0] == "poison":
+                self._add_log(f"Poison (stack {msg[2]}) deals {msg[1]} damage to {self.player.name}!")
+
+        if not self.player.is_alive:
+            self.state = TurnState.DEFEAT
+            self._add_log(f"{self.player.name} has fallen to status effects...")
+            return
+
+        if result["stunned"]:
+            self._add_log(f"{self.player.name} is stunned! Turn skipped.")
+            self._enemy_timer = 0
+            self._enemy_turn_count += 1
+            self.state = TurnState.ENEMY_TURN
+            self._sfx("enemy_turn")
+            self._add_log("--- Enemy's turn ---")
+            self._last_hit_info = {"target": "player", "damage": 0, "is_crit": False, "status_stun": True}
+            return
+
         self.state = TurnState.MENU_SELECT
         self._add_log("--- Your turn: Choose an action ---")
 
     def _advance_to_enemy_turn(self):
-        """Transition to ENEMY_TURN and reset the timer."""
-        self.state = TurnState.ENEMY_TURN
+        """Transition to ENEMY_TURN — process enemy status effects first."""
         self._enemy_timer = 0
         self._sfx("enemy_turn")
+
+        result = self.enemy.tick_status_effects()
+        result["target"] = "enemy"
+        self._last_status_tick = result
+
+        for msg in result["messages"]:
+            if msg[0] == "burn":
+                self._add_log(f"Burn deals {msg[1]} damage to {self.enemy.name}!")
+            elif msg[0] == "poison":
+                self._add_log(f"Poison (stack {msg[2]}) deals {msg[1]} damage to {self.enemy.name}!")
+
+        if not self.enemy.is_alive:
+            if self._ach_manager:
+                self._ach_manager.inc("kills")
+            self._award_xp()
+            self.state = TurnState.VICTORY
+            self._add_log(f"{self.enemy.name} defeated by status effects! Victory!")
+            self._sfx("boss_defeated" if self.is_boss else "victory")
+            self._award_gold()
+            self._drop_loot()
+            return
+
+        if result["stunned"]:
+            self._add_log(f"{self.enemy.name} is stunned! Turn skipped.")
+            self._advance_to_menu()
+            return
+
+        self.state = TurnState.ENEMY_TURN
         self._add_log("--- Enemy's turn ---")
 
     def _execute_attack(self):
@@ -558,6 +643,15 @@ class CombatManager:
         self._shake_source = "enemy"
         self._add_log(f"{self.enemy.name} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
 
+        # Enemy status application (not on smash/wrath specials)
+        if self.player.is_alive and not is_wrath and not is_smash:
+            if self.enemy.name == "Dragon" and random.random() < 0.3:
+                self.player.add_status("burn", "debuff", 3, {"potency": 6})
+                self._add_log(f"{self.enemy.name}'s flames burn you! (Burn 3 turns)")
+            elif self.enemy.name == "Vanguard Brute" and random.random() < 0.25:
+                self.player.add_status("stun", "debuff", 1, {})
+                self._add_log(f"{self.enemy.name}'s impact stuns you! (Stun)")
+
         if not self.player.is_alive:
             self.state = TurnState.DEFEAT
             self._add_log(f"{self.player.name} has fallen... Defeat.")
@@ -590,6 +684,7 @@ class CombatManager:
         self._level_ups.clear()
         self.victory_phase = "rewards"
         self._last_hit_info = None
+        self._last_status_tick = None
         self._shake_source = None
         self._enemy_turn_count = 0
         self._boss_phase2_triggered = False

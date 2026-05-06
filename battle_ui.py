@@ -48,6 +48,21 @@ RARITY_ACCENT = {
 }
 SLOT_LABEL = {ItemSlot.WEAPON: "Weapon", ItemSlot.ARMOR: "Armor"}
 
+STATUS_SHORT = {
+    "burn":        "B",
+    "poison":      "P",
+    "stun":        "S",
+    "vulnerable":  "V",
+    "focused":     "F",
+}
+STATUS_COLOR = {
+    "burn":        (255, 120, 20),
+    "poison":      (100, 200, 80),
+    "stun":        (255, 255, 100),
+    "vulnerable":  (220, 50, 60),
+    "focused":     (0, 240, 255),
+}
+
 SHAKE_MAX_INTENSITY = 8
 SHAKE_DURATION_MS = 200
 INV_SLIDE_MS = 200
@@ -295,7 +310,14 @@ class BattleUI:
         hit_info = getattr(combat, '_last_hit_info', None)
         if hit_info:
             missed = hit_info.get("missed", False)
+            status_stun = hit_info.get("status_stun", False)
             sprite_y = self._get_sprite_y()
+            if status_stun:
+                x = int(self.w * 0.25) + dx
+                y = sprite_y - 80 + dy
+                self._floating_texts.append(FloatingText("STUNNED!", x, y - 30, (255, 255, 100), 26))
+                combat._last_hit_info = None
+                return
             if missed:
                 target = hit_info.get("target")
                 if target == "enemy":
@@ -347,6 +369,27 @@ class BattleUI:
 
             combat._last_hit_info = None
 
+    def _check_status_ticks(self, combat: CombatManager, dx=0, dy=0):
+        """Spawn floating damage numbers for DOT status ticks."""
+        status_tick = getattr(combat, '_last_status_tick', None)
+        if status_tick is None:
+            return
+        sprite_y = self._get_sprite_y()
+        is_enemy_tick = status_tick.get("target") == "enemy"
+        for msg in status_tick.get("messages", []):
+            if msg[0] == "burn":
+                dmg = msg[1]
+                x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
+            elif msg[0] == "poison":
+                dmg = msg[1]
+                x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
+            else:
+                continue
+            y = sprite_y - 85 + dy
+            color = (255, 120, 20) if msg[0] == "burn" else (100, 200, 80)
+            self._floating_texts.append(FloatingText(str(dmg), x, y, color, 18))
+        combat._last_status_tick = None
+
     def _pulse_brightness(self) -> float:
         return 0.85 + 0.15 * (0.5 + 0.5 * math.sin(self._pulse_timer * 0.006))
 
@@ -373,6 +416,7 @@ class BattleUI:
         self._update_shake(dt_ms)
         dx, dy = self._get_shake_offset()
         self._check_for_hits(combat, dx, dy)
+        self._check_status_ticks(combat, dx, dy)
         self._player_anim.update(dt_ms)
         self._enemy_anim.update(dt_ms)
 
@@ -873,6 +917,36 @@ class BattleUI:
             potion_text = f"Potions: {total_qty}"
             potion_surf = self.font_hud.render(potion_text, True, (100, 220, 100))
             self.screen.blit(potion_surf, (cx + 5, cur_y))
+            cur_y += eq_h
+
+        # Row 9: Status effect icons
+        if char.status_effects:
+            cur_y += 4
+            self._draw_status_icons(char, cx, cur_y, inner_w)
+
+    def _draw_status_icons(self, char, x, y, width):
+        """Draw small status effect icons below HP bars."""
+        if not char.status_effects:
+            return
+        icon_x = x
+        for effect in char.status_effects:
+            name = effect["name"]
+            letter = STATUS_SHORT.get(name, "?")
+            color = STATUS_COLOR.get(name, (180, 180, 200))
+            turns = effect.get("turns_remaining", 0)
+            label = f"{letter}{turns}"
+
+            font = pygame.font.SysFont("arial", 12, bold=True)
+            surf = font.render(label, True, color)
+
+            bg_w = surf.get_width() + 6
+            bg_h = surf.get_height() + 2
+            bg = pygame.Surface((bg_w, bg_h), pygame.SRCALPHA)
+            bg.fill((*color, 40))
+            pygame.draw.rect(bg, (*color, 180), (0, 0, bg_w, bg_h), width=1, border_radius=3)
+            self.screen.blit(bg, (icon_x, y))
+            self.screen.blit(surf, (icon_x + 3, y + 1))
+            icon_x += bg_w + 4
 
     def _draw_sprite(self, anim: SpriteAnim, surf, x: int, y: int, name: str = "Dragon"):
         """Draw an animated character sprite with idle bob, hit flash, and shadow."""

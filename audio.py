@@ -151,6 +151,19 @@ SOUND_ENVELOPES = {
         (988, 0.06, "sine"),
         (1175, 0.12, "sine"),
     ],
+    "burn": [
+        (300, 0.08, "square"),
+        (200, 0.08, "square"),
+    ],
+    "poison": [
+        (150, 0.10, "square"),
+        (100, 0.10, "square"),
+    ],
+    "stun": [
+        (600, 0.05, "sine"),
+        (400, 0.05, "sine"),
+        (200, 0.05, "sine"),
+    ],
 }
 
 SOUND_VOLUMES = {
@@ -161,6 +174,7 @@ SOUND_VOLUMES = {
     "achievement_unlock": 0.35, "boss_roar": 0.40, "floor_up": 0.25,
     "rest_heal": 0.20, "shop_buy": 0.20, "shop_sell": 0.20,
     "menu_back": 0.20, "error": 0.30, "boss_defeated": 0.35, "miss": 0.20, "level_up": 0.30,
+    "burn": 0.25, "poison": 0.25, "stun": 0.30,
 }
 
 

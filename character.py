@@ -126,13 +126,28 @@ class Character:
     def has_status(self, name: str) -> bool:
         return any(e["name"] == name for e in self.status_effects)
 
-    def add_status(self, name: str, type_: str, duration: int):
-        """Add or refresh a status effect. Replaces existing effect of same name."""
+    def add_status(self, name: str, type_: str, duration: int, data: dict = None):
+        """Add or refresh a status effect. Replaces existing effect of same name.
+        For poison: if same name exists, increment stack up to 3, refresh duration.
+        """
+        existing = None
+        for e in self.status_effects:
+            if e["name"] == name:
+                existing = e
+                break
+
+        if name == "poison" and existing:
+            stack = existing["data"].get("stack", 1)
+            existing["data"]["stack"] = min(3, stack + 1)
+            existing["turns_remaining"] = duration
+            return
+
         self.status_effects = [e for e in self.status_effects if e["name"] != name]
         self.status_effects.append({
             "name": name,
             "type": type_,
             "turns_remaining": duration,
+            "data": data or {},
         })
 
     def consume_focused(self) -> int:
@@ -144,12 +159,34 @@ class Character:
                 return int(missing * 0.5)
         return 0
 
-    def tick_status_effects(self):
-        """Decrement all status effect durations. Remove expired ones."""
+    def tick_status_effects(self) -> dict:
+        """Tick durations, process DOT damage, and consume stun. Returns info for UI/log."""
+        result = {"dmg_taken": 0, "stunned": False, "messages": []}
+
+        for e in self.status_effects[:]:
+            if e["name"] == "burn":
+                potency = e.get("data", {}).get("potency", 8)
+                actual = self.take_damage(potency)
+                result["dmg_taken"] += actual
+                result["messages"].append(("burn", actual))
+            elif e["name"] == "poison":
+                stack = e.get("data", {}).get("stack", 1)
+                dmg = 5 + (stack - 1) * 3
+                actual = self.take_damage(dmg)
+                result["dmg_taken"] += actual
+                result["messages"].append(("poison", actual, stack))
+
+        for e in self.status_effects[:]:
+            if e["name"] == "stun":
+                result["stunned"] = True
+                self.status_effects.remove(e)
+
         for e in self.status_effects[:]:
             e["turns_remaining"] -= 1
             if e["turns_remaining"] <= 0:
                 self.status_effects.remove(e)
+
+        return result
 
     def tick_cooldowns(self):
         """Decrement all skill cooldowns by 1 turn. Remove expired ones."""
