@@ -112,9 +112,9 @@ def generate_dungeon(floor: int) -> list:
     for _ in range(mid_count):
         rooms.append(_generate_room(floor))
 
-    # Boss floor: replace the last mid room with a boss room
+    # Boss floor: replace the last mid room with a boss room (right before EXIT)
     if floor % 5 == 0 and mid_count >= 1:
-        rooms[-2] = {
+        rooms[-1] = {
             "type": RoomType.BOSS,
             "enemy": "abyssal_warden",
             "cleared": False,
