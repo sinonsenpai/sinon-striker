@@ -1,12 +1,12 @@
 {
-  "gold": 105,
-  "level": 1,
-  "xp": 45,
-  "xp_to_next": 50,
-  "base_atk": 15,
-  "base_def": 5,
-  "max_hp": 100,
-  "current_floor": 2,
+  "gold": 1168,
+  "level": 6,
+  "xp": 105,
+  "xp_to_next": 200,
+  "base_atk": 25,
+  "base_def": 10,
+  "max_hp": 150,
+  "current_floor": 6,
   "equipment": {
     "weapon": {
       "type": "weapon",
@@ -28,11 +28,67 @@
   "inventory": [
     {
       "type": "weapon",
-      "name": "Fine Blade",
+      "name": "Grand Flail",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Claymore",
       "rarity": "RARE",
       "atk": 6,
       "defense": 0,
-      "set_name": "Dragon"
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Grand Axe",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Scimitar",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
     },
     {
       "type": "armor",
@@ -44,7 +100,79 @@
     },
     {
       "type": "weapon",
-      "name": "Sword",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Dagger",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Scale",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Brigandine",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Leather",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Flail",
+      "rarity": "COMMON",
+      "atk": 3,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Star-Flail",
+      "rarity": "LEGENDARY",
+      "atk": 24,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Fine Robe",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 4,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Scimitar",
       "rarity": "COMMON",
       "atk": 3,
       "defense": 0,

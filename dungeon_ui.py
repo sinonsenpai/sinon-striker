@@ -27,6 +27,7 @@ class DungeonUI:
         self.screen = screen
         self.w, self.h = screen.get_size()
         self.run = dungeon_run
+        self.floor_display = 1
         self.font_title = pygame.font.SysFont("arial", 36, bold=True)
         self.font_large = pygame.font.SysFont("arial", 28, bold=True)
         self.font_medium = pygame.font.SysFont("arial", 22, bold=True)
@@ -83,7 +84,7 @@ class DungeonUI:
         title = self.font_title.render("DUNGEON", True, NEON_CYAN)
         self.screen.blit(title, ((self.w - title.get_width()) // 2, py + 20))
 
-        floor_num = self.run.floor if self.run else 1
+        floor_num = self.floor_display
         is_boss_floor = floor_num % 5 == 0
         floor_text = f"Floor {floor_num}"
         if is_boss_floor:

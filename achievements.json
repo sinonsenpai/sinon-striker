@@ -1,16 +1,22 @@
 {
   "unlocked": [
-    "delver",
     "set_bonus",
-    "first_blood"
+    "legendary_find",
+    "first_blood",
+    "slayer",
+    "delver",
+    "novice",
+    "deep_trek"
   ],
   "counters": {
-    "level_reached": 1,
-    "deepest_floor": 1,
-    "crits": 1,
-    "kills": 3,
-    "gold_earned": 45,
-    "items_found": 3,
-    "dungeons_completed": 1
+    "level_reached": 6,
+    "deepest_floor": 5,
+    "kills": 17,
+    "gold_earned": 618,
+    "items_found": 19,
+    "dungeons_completed": 5,
+    "legendaries_found": 1,
+    "skills_used": 1,
+    "crits": 1
   }
 }

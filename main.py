@@ -506,6 +506,7 @@ def main():
                 state = GameState.DUNGEON
 
         elif state == GameState.DUNGEON:
+            dungeon_ui.floor_display = current_floor
             dungeon_ui.update(dt_ms)
 
         elif state == GameState.DUNGEON_ROOM and dungeon_run is not None:
