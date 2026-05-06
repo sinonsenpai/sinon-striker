@@ -1,14 +1,14 @@
 {
   "unlocked": [
+    "first_blood",
+    "slayer",
+    "novice",
+    "deep_trek",
     "deaths_door",
     "set_bonus",
-    "slayer",
-    "first_blood",
-    "deep_trek",
-    "novice",
     "collector",
-    "merchant",
-    "delver"
+    "delver",
+    "merchant"
   ],
   "counters": {
     "level_reached": 6,

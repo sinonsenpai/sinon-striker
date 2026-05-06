@@ -58,8 +58,8 @@ LOCATIONS = [
     {"name": "Rest",         "icon": "moon",    "desc": "Restore HP & SP",       "key": "rest"},
 ]
 
-CARD_W, CARD_H = 140, 135
-CARD_GAP = 16
+CARD_W, CARD_H = 150, 135
+CARD_GAP = 10
 CARD_LIFT = 4
 
 # ── Shop data ───────────────────────────────────────────────────────────
@@ -478,6 +478,22 @@ class HubScreen:
             self.screen.blit(fade, (0, 0))
 
     # ------------------------------------------------------------------ #
+    #  Text fitting helper                                               #
+    # ------------------------------------------------------------------ #
+
+    def _fit_text(self, text: str, base_size: int, max_width: int, color, bold: bool = False, min_size: int = 12):
+        """Render text, scaling font down until it fits max_width. Returns (surface, font_size_used)."""
+        size = base_size
+        while size >= min_size:
+            font = pygame.font.SysFont("arial", size, bold=bold)
+            surf = font.render(text, True, color)
+            if surf.get_width() <= max_width:
+                return surf, size
+            size -= 1
+        font = pygame.font.SysFont("arial", min_size, bold=bold)
+        return font.render(text, True, color), min_size
+
+    # ------------------------------------------------------------------ #
     #  Card drawing                                                      #
     # ------------------------------------------------------------------ #
 
@@ -526,14 +542,16 @@ class HubScreen:
             iy = cy + 18
             self._draw_card_icon(icon, ix, iy, GOLD if selected else DIM_WHITE)
 
-            # Name
-            name_surf = self.font_card_name.render(loc["name"], True, WHITE if selected else DIM_WHITE)
+            # Name — dynamically scale if too wide
+            name_max_w = CARD_W - 16
+            name_surf, _ = self._fit_text(loc["name"], 18, name_max_w, WHITE if selected else DIM_WHITE, bold=True, min_size=14)
             nx = cx + (CARD_W - name_surf.get_width()) // 2
             ny = iy + 30 + 8
             self.screen.blit(name_surf, (nx, ny))
 
-            # Description
-            desc_surf = self.font_card_desc.render(loc["desc"], True, (130, 130, 150))
+            # Description — dynamically scale if too wide
+            desc_max_w = CARD_W - 16
+            desc_surf, _ = self._fit_text(loc["desc"], 14, desc_max_w, (150, 150, 170), bold=False, min_size=11)
             dx = cx + (CARD_W - desc_surf.get_width()) // 2
             dy = ny + name_surf.get_height() + 4
             self.screen.blit(desc_surf, (dx, dy))
