@@ -361,6 +361,13 @@ class CombatManager:
 
         if skill.get("damage_mult", 0) > 0:
             # Damage skill (Star-Shatter Strike)
+            if not self._check_hit(self.player, self.enemy):
+                self._last_hit_info = {"target": "enemy", "damage": 0, "is_crit": False, "missed": True}
+                self._add_log(f"{self.player.name}'s {skill['name']} missed!")
+                self._sfx("miss")
+                self._advance_to_enemy_turn()
+                return
+
             total_atk = self.player.atk
             total_def = self.enemy.defn
 
@@ -443,6 +450,11 @@ class CombatManager:
         if xp > 0:
             self._add_log(f"Gained {xp} XP!")
 
+    def _check_hit(self, attacker, target) -> bool:
+        """Roll for hit. Returns True if attack lands."""
+        hit_chance = max(0.05, min(0.95, attacker.accuracy - target.evasion))
+        return random.random() < hit_chance
+
     def _sfx(self, name: str):
         """Play a sound effect if a SoundManager is attached."""
         if self._snd:
@@ -468,6 +480,13 @@ class CombatManager:
 
     def _execute_attack(self):
         """Execute a basic strike attack — supports crits and focused buff."""
+        if not self._check_hit(self.player, self.enemy):
+            self._last_hit_info = {"target": "enemy", "damage": 0, "is_crit": False, "missed": True}
+            self._add_log(f"{self.player.name}'s attack missed!")
+            self._sfx("miss")
+            self._advance_to_enemy_turn()
+            return
+
         total_atk = self.player.atk
         total_def = self.enemy.defn
 
@@ -506,8 +525,6 @@ class CombatManager:
         """Enemy attacks the player — Vanguard Brute uses Brute Smash every 3 turns.
         Bosses trigger Phase 2 at 50% HP and use Warden's Wrath every 3 turns."""
         self._enemy_turn_count += 1
-        total_atk = self.enemy.atk
-        total_def = self.player.defn
 
         # Boss Phase 2 trigger
         if self.is_boss and not self._boss_phase2_triggered:
@@ -516,6 +533,16 @@ class CombatManager:
                 self.enemy._base_atk = int(self.enemy._base_atk * 1.5)
                 self._add_log("The Abyssal Warden roars and enters Phase 2!")
                 self._sfx("boss_roar")
+
+        if not self._check_hit(self.enemy, self.player):
+            self._last_hit_info = {"target": "player", "damage": 0, "is_crit": False, "missed": True}
+            self._add_log(f"{self.enemy.name}'s attack missed!")
+            self._sfx("miss")
+            self._advance_to_menu()
+            return
+
+        total_atk = self.enemy.atk
+        total_def = self.player.defn
 
         # Brute Smash: every 3 turns, 1.5x damage
         is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0

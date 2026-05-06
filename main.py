@@ -62,6 +62,7 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
             enemy_data.get("xp_reward", 0),
             enemy_data.get("gold_min", 20), enemy_data.get("gold_max", 40)
         )
+        enemy._eva = enemy_data.get("eva", 0.05)
         is_boss = rtype == RoomType.BOSS
         combat = CombatManager(player, enemy, snd, ach_manager, is_boss=is_boss, floor=room.get("floor", 1))
         return ("battle", combat)
@@ -354,7 +355,13 @@ def main():
                         save_game(player, snd, ach_manager, current_floor)
                         state = GameState.HUB
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "death":
+                        # Game Over: full restore + floor reset + gold penalty
+                        player.current_hp = player.max_hp
+                        player.sp = player.max_sp
                         ach_manager.inc("deaths")
+                        current_floor = 1
+                        lost_gold = player.gold // 2
+                        player.gold -= lost_gold
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         save_game(player, snd, ach_manager, current_floor)
@@ -579,7 +586,7 @@ def main():
             elif dungeon_sub == "complete":
                 dungeon_ui.draw_run_complete()
             elif dungeon_sub == "death":
-                dungeon_ui.draw_death()
+                dungeon_ui.draw_death(dt_ms)
             else:
                 dungeon_ui.draw_room()
                 if dungeon_run.room_cleared:

@@ -34,6 +34,9 @@ class Character:
         # Status effects list of dicts: {name, type, turns_remaining, data}
         self.status_effects: list = []
 
+        # Evasion base value (enemies override via _eva; players use equipment bonus)
+        self._eva: float = 0.05
+
     # ── Properties ─────────────────────────────────────────────────
 
     @property
@@ -86,6 +89,22 @@ class Character:
         hp_pct = self.current_hp / self.max_hp if self.max_hp > 0 else 1.0
         bonus = (1.0 - hp_pct) * 0.30
         return base + bonus
+
+    @property
+    def accuracy(self) -> float:
+        """Base accuracy (85%) + equipment bonuses."""
+        base = 0.85
+        weapon = self.equipment.get("weapon")
+        acc_bonus = weapon.stat_modifier.get("acc", 0) if weapon else 0
+        return min(0.95, base + acc_bonus)
+
+    @property
+    def evasion(self) -> float:
+        """Base evasion (5%) + equipment bonuses."""
+        base = self._eva
+        armor = self.equipment.get("armor")
+        eva_bonus = armor.stat_modifier.get("eva", 0) if armor else 0
+        return min(0.30, base + eva_bonus)
 
     # ── Equipment ──────────────────────────────────────────────────
 

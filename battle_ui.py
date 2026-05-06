@@ -294,10 +294,24 @@ class BattleUI:
         # Spawn visual FX from combat hit info
         hit_info = getattr(combat, '_last_hit_info', None)
         if hit_info:
+            missed = hit_info.get("missed", False)
+            sprite_y = self._get_sprite_y()
+            if missed:
+                target = hit_info.get("target")
+                if target == "enemy":
+                    x = int(self.w * 0.72) + dx
+                    y = sprite_y - 80 + dy
+                else:
+                    x = int(self.w * 0.25) + dx
+                    y = sprite_y - 80 + dy
+                miss_text = FloatingText("MISS!", x, y - 20, DIM_WHITE, 28)
+                self._floating_texts.append(miss_text)
+                combat._last_hit_info = None
+                return  # Skip the rest of the FX processing
+
             target = hit_info.get("target")
             damage = hit_info.get("damage", 0)
             is_crit = hit_info.get("is_crit", False)
-            sprite_y = self._get_sprite_y()
             if target == "enemy":
                 x = int(self.w * 0.72) + dx
                 y = sprite_y - 80 + dy
@@ -921,7 +935,13 @@ class BattleUI:
         """Draw a single equipment line inside the HUD — no truncation, scales font down if needed."""
         eq_gold = (200, 170, 50)
         slot_name = "Weapon" if is_weapon else "Armor"
-        stat_val = f"+{item.atk} ATK" if is_weapon else f"+{item.defense} DEF"
+        stat_parts = []
+        for stat, value in item.stat_modifier.items():
+            if stat in ("acc", "eva"):
+                stat_parts.append(f"+{int(value * 100)}% {stat.upper()}")
+            else:
+                stat_parts.append(f"+{value} {stat.upper()}")
+        stat_val = " ".join(stat_parts)
         full_text = f"{slot_name}: {item.name}  [{stat_val}]"
 
         # Try decreasing font sizes until it fits

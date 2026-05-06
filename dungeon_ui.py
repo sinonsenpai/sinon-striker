@@ -455,27 +455,69 @@ class DungeonUI:
 
     # ── Death screen ──────────────────────────────────────────────
 
-    def draw_death(self):
-        self.screen.fill(BG_COLOR)
-        overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 10))
-        self.screen.blit(overlay, (0, 0))
+    def draw_death(self, dt_ms: int):
+        # Dark red-tinted background
+        self.screen.fill((10, 0, 0))
 
-        title = self.font_title.render("You fell in the dungeon...", True, RED)
-        self.screen.blit(title, ((self.w - title.get_width()) // 2, self.h // 2 - 50))
+        # Vignette overlay (radial gradient approximation)
+        for i in range(8):
+            alpha = 100 - i * 12
+            margin = i * 40
+            vw = self.w - margin * 2
+            vh = self.h - margin * 2
+            if vw > 0 and vh > 0:
+                v_surf = pygame.Surface((vw, vh), pygame.SRCALPHA)
+                v_surf.fill((60, 0, 0, max(0, alpha)))
+                self.screen.blit(v_surf, (margin, margin))
 
+        # Pulsing "GAME OVER" title
+        pulse = abs(math.sin(dt_ms * 0.003)) * 30
+        title_color = (min(255, int(255 + pulse)), min(255, int(50 + pulse)), min(255, int(50 + pulse)))
+        title = self.font_large.render("GAME OVER", True, title_color)
+        self.screen.blit(title, ((self.w - title.get_width()) // 2, self.h // 2 - 180))
+
+        # Subtitle
+        subtitle = self.font_medium.render("You fell in the dungeon...", True, DIM_WHITE)
+        self.screen.blit(subtitle, ((self.w - subtitle.get_width()) // 2, self.h // 2 - 130))
+
+        # Run Stats Panel
+        panel_w, panel_h = 380, 160
+        px = (self.w - panel_w) // 2
+        py = self.h // 2 - 90
+
+        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel_surf.fill((*PANEL_BG, 200))
+        self.screen.blit(panel_surf, (px, py))
+        pygame.draw.rect(self.screen, RED, (px, py, panel_w, panel_h), 2, border_radius=8)
+
+        # Panel header
+        header = self.font_medium.render("Run Summary", True, RED)
+        self.screen.blit(header, ((self.w - header.get_width()) // 2, py + 10))
+
+        player = self.run.player
+        lost_gold = player.gold // 2
         lines = [
+            f"Floor reached: {self.run.floor}",
             f"Rooms cleared: {self.run.room_index}/{self.run.total_rooms}",
-            f"Gold kept: {self.run.total_gold}",
+            f"Enemies defeated: {self.run.enemies_defeated}",
+            f"Gold earned this run: {self.run.total_gold}",
+            f"Gold lost (50%): {lost_gold}",
         ]
-        cy = self.h // 2
+        cy = py + 40
         for line in lines:
-            s = self.font_small.render(line, True, DIM_WHITE)
+            s = self.font_small.render(line, True, WHITE)
             self.screen.blit(s, ((self.w - s.get_width()) // 2, cy))
-            cy += 24
+            cy += 22
 
-        hint = self.font_medium.render("Press ENTER to return to Hub", True, RED)
-        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, cy + 20))
+        # Penalty notice
+        penalty = self.font_small.render("Half your gold was lost in the fall...", True, RED)
+        penalty_surf = penalty.convert_alpha()
+        penalty_surf.set_alpha(180)
+        self.screen.blit(penalty_surf, ((self.w - penalty_surf.get_width()) // 2, self.h // 2 + 90))
+
+        # Footer
+        footer = self.font_medium.render("Press ENTER to return to Hub (Floor reset to 1)", True, DIM_WHITE)
+        self.screen.blit(footer, ((self.w - footer.get_width()) // 2, self.h // 2 + 140))
 
     # ── Dungeon shop ──────────────────────────────────────────────
 

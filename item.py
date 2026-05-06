@@ -40,6 +40,20 @@ RARITY_PREFIX = {
     Rarity.LEGENDARY: "Star-",
 }
 
+RARITY_ACC_BONUS = {
+    Rarity.COMMON: 0.0,
+    Rarity.RARE: 0.03,
+    Rarity.EPIC: 0.05,
+    Rarity.LEGENDARY: 0.08,
+}
+
+RARITY_EVA_BONUS = {
+    Rarity.COMMON: 0.0,
+    Rarity.RARE: 0.02,
+    Rarity.EPIC: 0.04,
+    Rarity.LEGENDARY: 0.06,
+}
+
 WEAPON_NAMES = [
     "Blade",
     "Sword",
@@ -108,7 +122,10 @@ class Item:
         stat_parts = []
         for stat, value in self.stat_modifier.items():
             stat_label = stat.upper()
-            stat_parts.append(f"+{value} {stat_label}")
+            if stat in ("acc", "eva"):
+                stat_parts.append(f"+{int(value * 100)}% {stat_label}")
+            else:
+                stat_parts.append(f"+{value} {stat_label}")
         stats_str = " ".join(stat_parts)
         return f"[{self.rarity.name}] {self.name} ({stats_str})"
 
@@ -116,8 +133,10 @@ class Item:
 class Weapon(Item):
     """A weapon item that provides ATK bonus."""
 
-    def __init__(self, name: str, rarity: Rarity, atk: int, set_name: str = None):
+    def __init__(self, name: str, rarity: Rarity, atk: int, set_name: str = None, acc: float = 0.0):
         stat_modifier = {"atk": atk}
+        if acc:
+            stat_modifier["acc"] = acc
         super().__init__(name, rarity, ItemSlot.WEAPON, stat_modifier)
         self.atk = atk
         self.set_name = set_name
@@ -126,8 +145,10 @@ class Weapon(Item):
 class Armor(Item):
     """An armor item that provides DEF bonus."""
 
-    def __init__(self, name: str, rarity: Rarity, defense: int, set_name: str = None):
+    def __init__(self, name: str, rarity: Rarity, defense: int, set_name: str = None, eva: float = 0.0):
         stat_modifier = {"def": defense}
+        if eva:
+            stat_modifier["eva"] = eva
         super().__init__(name, rarity, ItemSlot.ARMOR, stat_modifier)
         self.defense = defense
         self.set_name = set_name
@@ -194,13 +215,15 @@ class LootGenerator:
         if roll < 0.60:
             name = RARITY_PREFIX[rarity] + random.choice(WEAPON_NAMES)
             atk = WEAPON_BASE_ATK * multiplier
+            acc = RARITY_ACC_BONUS[rarity]
             set_name = LootGenerator._get_set_name(name)
-            return Weapon(name, rarity, atk, set_name)
+            return Weapon(name, rarity, atk, set_name, acc=acc)
         elif roll < 0.88:
             name = RARITY_PREFIX[rarity] + random.choice(ARMOR_NAMES)
             defense = ARMOR_BASE_DEF * multiplier
+            eva = RARITY_EVA_BONUS[rarity]
             set_name = LootGenerator._get_set_name(name)
-            return Armor(name, rarity, defense, set_name)
+            return Armor(name, rarity, defense, set_name, eva=eva)
         else:
             hp_restore = POTION_BASE_HP * multiplier
             name = RARITY_PREFIX[rarity] + "Potion"

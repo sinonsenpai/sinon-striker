@@ -142,6 +142,10 @@ SOUND_ENVELOPES = {
         (1319, 0.25, "sine"),
         (1760, 0.30, "sine"),
     ],
+    "miss": [
+        (200, 0.05, "square"),
+        (150, 0.05, "square"),
+    ],
     "level_up": [
         (784, 0.06, "sine"),
         (988, 0.06, "sine"),
@@ -156,7 +160,7 @@ SOUND_VOLUMES = {
     "item_use": 0.20, "loot_drop": 0.20, "enemy_turn": 0.15,
     "achievement_unlock": 0.35, "boss_roar": 0.40, "floor_up": 0.25,
     "rest_heal": 0.20, "shop_buy": 0.20, "shop_sell": 0.20,
-    "menu_back": 0.20, "error": 0.30, "boss_defeated": 0.35, "level_up": 0.30,
+    "menu_back": 0.20, "error": 0.30, "boss_defeated": 0.35, "miss": 0.20, "level_up": 0.30,
 }
 
 

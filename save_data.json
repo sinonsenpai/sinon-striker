@@ -1,12 +1,12 @@
 {
-  "gold": 1189,
+  "gold": 1640,
   "level": 6,
-  "xp": 58,
+  "xp": 192,
   "xp_to_next": 200,
   "base_atk": 25,
   "base_def": 10,
   "max_hp": 150,
-  "current_floor": 5,
+  "current_floor": 2,
   "equipment": {
     "weapon": {
       "type": "weapon",
@@ -28,39 +28,15 @@
   "inventory": [],
   "consumables": [
     {
-      "name": "Fine Potion",
-      "rarity": "RARE",
-      "hp_restore": 30,
-      "quantity": 1
-    },
-    {
       "name": "Potion",
       "rarity": "COMMON",
       "hp_restore": 15,
-      "quantity": 1
+      "quantity": 3
     },
     {
       "name": "Grand Potion",
       "rarity": "EPIC",
       "hp_restore": 60,
-      "quantity": 1
-    },
-    {
-      "name": "Small Potion",
-      "rarity": "COMMON",
-      "hp_restore": 30,
-      "quantity": 2
-    },
-    {
-      "name": "Large Potion",
-      "rarity": "COMMON",
-      "hp_restore": 75,
-      "quantity": 1
-    },
-    {
-      "name": "Antidote",
-      "rarity": "COMMON",
-      "hp_restore": 0,
       "quantity": 1
     }
   ]

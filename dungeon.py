@@ -87,10 +87,10 @@ FLAVOR = {
 BRANCH_POINTS = {2, 4}
 
 ENEMY_POOL = {
-    "slime": {"name": "Slime", "hp": 50, "atk": 8, "defn": 3, "gold_min": 10, "gold_max": 20, "xp_reward": 15},
-    "dragon": {"name": "Dragon", "hp": 80, "atk": 14, "defn": 6, "gold_min": 20, "gold_max": 40, "xp_reward": 30},
-    "brute": {"name": "Vanguard Brute", "hp": 120, "atk": 18, "defn": 8, "gold_min": 25, "gold_max": 50, "xp_reward": 50},
-    "abyssal_warden": {"name": "Abyssal Warden", "hp": 250, "atk": 25, "defn": 12, "gold_min": 80, "gold_max": 150, "xp_reward": 100},
+    "slime": {"name": "Slime", "hp": 50, "atk": 8, "defn": 3, "eva": 0.02, "gold_min": 10, "gold_max": 20, "xp_reward": 15},
+    "dragon": {"name": "Dragon", "hp": 80, "atk": 14, "defn": 6, "eva": 0.05, "gold_min": 20, "gold_max": 40, "xp_reward": 30},
+    "brute": {"name": "Vanguard Brute", "hp": 120, "atk": 18, "defn": 8, "eva": 0.03, "gold_min": 25, "gold_max": 50, "xp_reward": 50},
+    "abyssal_warden": {"name": "Abyssal Warden", "hp": 250, "atk": 25, "defn": 12, "eva": 0.08, "gold_min": 80, "gold_max": 150, "xp_reward": 100},
 }
 
 
@@ -106,6 +106,7 @@ def scale_enemy(base: dict, floor: int) -> dict:
     scaled["hp"] = max(1, int(base["hp"] * mult))
     scaled["atk"] = max(1, int(base["atk"] * mult))
     scaled["defn"] = max(1, int(base["defn"] * mult))
+    scaled["eva"] = min(0.30, base["eva"] * mult)
     scaled["gold_min"] = int(base["gold_min"] * mult)
     scaled["gold_max"] = int(base["gold_max"] * mult)
     scaled["xp_reward"] = int(base["xp_reward"] * mult)
