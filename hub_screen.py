@@ -43,6 +43,7 @@ class HubSubState(Enum):
     MAIN = auto()
     SMITHY_INVENTORY = auto()
     APOTHECARY = auto()
+    MERCHANT = auto()
     RETURN_PROMPT = auto()
     TOAST = auto()
     ACHIEVEMENTS = auto()
@@ -53,11 +54,12 @@ LOCATIONS = [
     {"name": "Dungeon Gate", "icon": "sword",   "desc": "Descend into danger",   "key": "dungeon"},
     {"name": "Smithy",       "icon": "hammer",  "desc": "Equip & manage gear",   "key": "smithy"},
     {"name": "Apothecary",   "icon": "potion",  "desc": "Buy consumables",       "key": "apothecary"},
+    {"name": "Merchant",     "icon": "chest",   "desc": "Buy weapons & armor",   "key": "merchant"},
     {"name": "Rest",         "icon": "moon",    "desc": "Restore HP & SP",       "key": "rest"},
 ]
 
-CARD_W, CARD_H = 175, 135
-CARD_GAP = 22
+CARD_W, CARD_H = 140, 135
+CARD_GAP = 16
 CARD_LIFT = 4
 
 # ── Shop data ───────────────────────────────────────────────────────────
@@ -155,6 +157,13 @@ class HubScreen:
         self._shop_toast_timer = 0
         self._shop_toast_text = ""
 
+        # ── Merchant state ──
+        self._merchant_stock: list = []
+        self._merchant_cursor = 0
+        self._merchant_confirming = False
+        self._merchant_toast_timer = 0
+        self._merchant_toast_text = ""
+
         # ── Achievement viewer state ──
         self._ach_cursor = 0
         self._ach_scroll_offset = 0
@@ -196,6 +205,8 @@ class HubScreen:
             self._enter_smithy()
         elif key == "apothecary":
             self._enter_shop()
+        elif key == "merchant":
+            self._enter_merchant()
         elif key == "rest":
             self._do_rest()
 
@@ -207,7 +218,7 @@ class HubScreen:
         """ESC pressed. Behaviour depends on sub-state."""
         if self.sub_state == HubSubState.MAIN:
             self.sub_state = HubSubState.RETURN_PROMPT
-        elif self.sub_state in (HubSubState.APOTHECARY, HubSubState.SMITHY_INVENTORY, HubSubState.ACHIEVEMENTS):
+        elif self.sub_state in (HubSubState.APOTHECARY, HubSubState.SMITHY_INVENTORY, HubSubState.MERCHANT, HubSubState.ACHIEVEMENTS):
             self.sub_state = HubSubState.MAIN
         elif self.sub_state == HubSubState.RETURN_PROMPT:
             self.sub_state = HubSubState.MAIN
@@ -354,6 +365,12 @@ class HubScreen:
             if self._sell_toast_timer < 0:
                 self._sell_toast_timer = 0
 
+        # Merchant toast timer
+        if self._merchant_toast_timer > 0:
+            self._merchant_toast_timer -= dt_ms
+            if self._merchant_toast_timer < 0:
+                self._merchant_toast_timer = 0
+
     def draw(self, dt_ms: int):
         self.screen.fill(BG_COLOR)
 
@@ -449,6 +466,8 @@ class HubScreen:
             self._draw_return_prompt()
         elif self.sub_state == HubSubState.TOAST:
             self._draw_toast()
+        elif self.sub_state == HubSubState.MERCHANT:
+            self._draw_merchant()
         elif self.sub_state == HubSubState.ACHIEVEMENTS:
             self._draw_achievements()
 
@@ -656,6 +675,170 @@ class HubScreen:
             self.screen.blit(toast_surf, (px + (panel_w - toast_surf.get_width()) // 2, hint_y))
         elif self._shop_confirming:
             confirm_text = f"Buy {SHOP_ITEMS[self._shop_cursor]['name']} for {SHOP_ITEMS[self._shop_cursor]['cost']}g?  Press ENTER to confirm"
+            confirm_surf = self.font_small.render(confirm_text, True, GOLD)
+            self.screen.blit(confirm_surf, (px + (panel_w - confirm_surf.get_width()) // 2, hint_y))
+        else:
+            hint = self.font_hint.render("[W/S] Navigate   [ENTER] Buy   [ESC] Back", True, (100, 100, 130))
+            self.screen.blit(hint, (px + (panel_w - hint.get_width()) // 2, hint_y))
+
+    # ------------------------------------------------------------------ #
+    #  Gear Merchant                                                     #
+    # ------------------------------------------------------------------ #
+
+    def _enter_merchant(self):
+        from item import LootGenerator, Consumable
+        self._merchant_stock = []
+        stock_size = random.randint(4, 6)
+        for _ in range(stock_size):
+            item = LootGenerator.generate(floor=max(1, self.player.level))
+            if not isinstance(item, Consumable):
+                self._merchant_stock.append(item)
+        self._merchant_cursor = 0
+        self._merchant_confirming = False
+        self.sub_state = HubSubState.MERCHANT
+
+    def merchant_move_up(self):
+        if self.sub_state != HubSubState.MERCHANT:
+            return
+        self._merchant_confirming = False
+        self._merchant_cursor = (self._merchant_cursor - 1) % len(self._merchant_stock)
+
+    def merchant_move_down(self):
+        if self.sub_state != HubSubState.MERCHANT:
+            return
+        self._merchant_confirming = False
+        self._merchant_cursor = (self._merchant_cursor + 1) % len(self._merchant_stock)
+
+    def merchant_buy(self):
+        if self.sub_state != HubSubState.MERCHANT:
+            return
+        items = self._merchant_stock
+        if not items:
+            return
+        item = items[self._merchant_cursor]
+        price = self._merchant_price(item)
+
+        if not self._merchant_confirming:
+            if self.player.gold < price:
+                self._sfx("error")
+                self._merchant_toast_text = "Not enough gold!"
+                self._merchant_toast_timer = 1500
+                return
+            self._merchant_confirming = True
+            return
+
+        # Second press — buy
+        self._merchant_confirming = False
+        if self.player.gold >= price:
+            self.player.gold -= price
+            self.player.inventory.append(item)
+            self._merchant_stock.pop(self._merchant_cursor)
+            self._merchant_toast_text = f"Purchased {item.name}!"
+            self._merchant_toast_timer = 1500
+            self._sfx("shop_buy")
+            if self._merchant_cursor >= len(self._merchant_stock) and self._merchant_stock:
+                self._merchant_cursor = len(self._merchant_stock) - 1
+            if self._ach_manager:
+                self._ach_manager.unlock("spendthrift")
+
+    def _merchant_price(self, item) -> int:
+        """Merchant sells at ~2x sell price."""
+        from item import Weapon, Armor
+        base = {Rarity.COMMON: 20, Rarity.RARE: 50, Rarity.EPIC: 120, Rarity.LEGENDARY: 300}
+        b = base.get(item.rarity, 20)
+        stat_value = item.atk if isinstance(item, Weapon) else item.defense
+        return int(b * (1 + stat_value / 8))
+
+    def _draw_merchant(self):
+        overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+
+        panel_w, panel_h = 500, 380
+        px = (self.w - panel_w) // 2
+        py = (self.h - panel_h) // 2
+        m = 16
+
+        # Panel background
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 225))
+        self.screen.blit(panel, (px, py))
+        pygame.draw.rect(self.screen, NEON_CYAN, (px, py, panel_w, panel_h), 2, border_radius=8)
+
+        # Header
+        title = self.font_prompt.render("Merchant", True, GOLD)
+        self.screen.blit(title, (px + m, py + 10))
+        gold_text = f"\u25cf Gold: {self.player.gold}"
+        gold_surf = self.font_card_name.render(gold_text, True, GOLD)
+        self.screen.blit(gold_surf, (px + panel_w - gold_surf.get_width() - m, py + 12))
+
+        # Separator
+        sep_y = py + 10 + title.get_height() + 6
+        pygame.draw.line(self.screen, NEON_CYAN_DIM, (px + m, sep_y), (px + panel_w - m, sep_y), 1)
+
+        # Stock list
+        row_y = sep_y + 12
+        item_h = 54
+        item_gap = 6
+        row_w = panel_w - 2 * m
+
+        if not self._merchant_stock:
+            empty = self.font_inv_item.render("All out of stock — check back later!", True, DIM_WHITE)
+            self.screen.blit(empty, (px + m + 10, row_y + 20))
+        else:
+            for i, item in enumerate(self._merchant_stock):
+                iy = row_y + i * (item_h + item_gap)
+                selected = i == self._merchant_cursor
+
+                # Row background
+                if selected:
+                    pulse = 0.7 + 0.3 * math.sin(self._elapsed_ms * 0.007)
+                    hl_color = GOLD if self._merchant_confirming else NEON_CYAN
+                    row_bg = pygame.Surface((row_w, item_h), pygame.SRCALPHA)
+                    row_bg.fill((*hl_color, int(30 * pulse)))
+                    self.screen.blit(row_bg, (px + m, iy))
+                    pygame.draw.rect(self.screen, hl_color, (px + m, iy, row_w, item_h), 1, border_radius=5)
+                else:
+                    row_bg = pygame.Surface((row_w, item_h), pygame.SRCALPHA)
+                    row_bg.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 80))
+                    self.screen.blit(row_bg, (px + m, iy))
+
+                # Item name with rarity color
+                rarity_c = RARITY_COLOR.get(item.rarity, WHITE)
+                name_text = f"> {item.name}" if selected else item.name
+                name_color = (GOLD if self._merchant_confirming else NEON_CYAN) if selected else rarity_c
+                name_surf = self.font_inv_item.render(name_text, True, name_color)
+                self.screen.blit(name_surf, (px + m + 10, iy + 6))
+
+                # Stats
+                stat_parts = []
+                for stat, value in item.stat_modifier.items():
+                    if stat in ("acc", "eva"):
+                        stat_parts.append(f"+{int(value * 100)}% {stat.upper()}")
+                    else:
+                        stat_parts.append(f"+{value} {stat.upper()}")
+                stat_text = "  ".join(stat_parts)
+                stat_surf = self.font_card_desc.render(stat_text, True, DIM_WHITE)
+                self.screen.blit(stat_surf, (px + m + 10, iy + 28))
+
+                # Price
+                price = self._merchant_price(item)
+                can_afford = self.player.gold >= price
+                cost_color = GOLD if can_afford else RED
+                cost_text = f"{price}g"
+                cost_surf = self.font_card_name.render(cost_text, True, cost_color)
+                self.screen.blit(cost_surf, (px + panel_w - cost_surf.get_width() - m - 8, iy + 14))
+
+        # Toast, confirm prompt, or hint
+        hint_y = py + panel_h - 28
+        if self._merchant_toast_timer > 0:
+            is_good = "Purchased" in self._merchant_toast_text
+            toast_surf = self.font_small.render(self._merchant_toast_text, True, GREEN if is_good else RED)
+            self.screen.blit(toast_surf, (px + (panel_w - toast_surf.get_width()) // 2, hint_y))
+        elif self._merchant_confirming and self._merchant_stock:
+            item = self._merchant_stock[self._merchant_cursor]
+            price = self._merchant_price(item)
+            confirm_text = f"Buy {item.name} for {price}g?  Press ENTER to confirm"
             confirm_surf = self.font_small.render(confirm_text, True, GOLD)
             self.screen.blit(confirm_surf, (px + (panel_w - confirm_surf.get_width()) // 2, hint_y))
         else:
@@ -1096,6 +1279,16 @@ class HubScreen:
             pygame.draw.rect(s, color, (2, 3, 12, 22), border_radius=1, width=2)
             pygame.draw.rect(s, color, (16, 3, 12, 22), border_radius=1, width=2)
             pygame.draw.line(s, color, (15, 3), (15, 25), 2)
+        elif icon_type == "chest":
+            # Chest box
+            pygame.draw.rect(s, color, (4, 10, 22, 14), border_radius=2, width=2)
+            # Lid line
+            pygame.draw.line(s, color, (4, 14), (26, 14), 2)
+            # Lock
+            pygame.draw.rect(s, color, (13, 12, 4, 6), border_radius=1)
+            # Sparkle
+            pygame.draw.line(s, color, (20, 6), (20, 10), 2)
+            pygame.draw.line(s, color, (18, 8), (22, 8), 2)
         self.screen.blit(s, (cx - 15, cy))
 
     def _sfx(self, name: str):

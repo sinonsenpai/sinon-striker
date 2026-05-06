@@ -220,6 +220,18 @@ def main():
                             hub_screen.cancel()
                             save_game(player, snd, ach_manager, current_floor)
 
+                    elif sub == HubSubState.MERCHANT:
+                        if event.key in (pygame.K_w, pygame.K_UP):
+                            hub_screen.merchant_move_up()
+                        elif event.key in (pygame.K_s, pygame.K_DOWN):
+                            hub_screen.merchant_move_down()
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            hub_screen.merchant_buy()
+                        elif event.key == pygame.K_ESCAPE:
+                            snd.play("menu_back")
+                            hub_screen.cancel()
+                            save_game(player, snd, ach_manager, current_floor)
+
                     elif sub == HubSubState.RETURN_PROMPT:
                         if event.key == pygame.K_y:
                             result = hub_screen.confirm_return()

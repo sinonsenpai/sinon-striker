@@ -1,5 +1,5 @@
 {
-  "gold": 1640,
+  "gold": 1340,
   "level": 6,
   "xp": 192,
   "xp_to_next": 200,
@@ -25,7 +25,16 @@
       "set_name": "Dragon"
     }
   },
-  "inventory": [],
+  "inventory": [
+    {
+      "type": "weapon",
+      "name": "Grand Blade",
+      "rarity": "EPIC",
+      "atk": 12,
+      "defense": 0,
+      "set_name": null
+    }
+  ],
   "consumables": [
     {
       "name": "Potion",
