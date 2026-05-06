@@ -98,11 +98,12 @@ class GoldenDust:
 class HubScreen:
     """Renders and manages the Haven's Rest hub town."""
 
-    def __init__(self, screen: pygame.Surface, player, ach_manager=None):
+    def __init__(self, screen: pygame.Surface, player, ach_manager=None, sound_manager=None):
         self.screen = screen
         self.w, self.h = screen.get_size()
         self.player = player
         self._ach_manager = ach_manager
+        self._snd = sound_manager
 
         # ── Dust particles ──
         self._dust = [GoldenDust(self.w, self.h) for _ in range(40)]
@@ -266,6 +267,7 @@ class HubScreen:
         self._sell_toast_text = f"Sold {item.name} for {price}g!"
         self._sell_toast_timer = 1500
         self._sell_confirming = False
+        self._sfx("shop_sell")
         if self._ach_manager:
             self._ach_manager.unlock("merchant")
 
@@ -554,6 +556,7 @@ class HubScreen:
 
         if not self._shop_confirming:
             if self.player.gold < item["cost"]:
+                self._sfx("error")
                 self._shop_toast_text = "Not enough gold!"
                 self._shop_toast_timer = 1500
                 return
@@ -569,6 +572,7 @@ class HubScreen:
             merge_into_stack(self.player.consumables, potion)
             self._shop_toast_text = f"Purchased {item['name']}!"
             self._shop_toast_timer = 1500
+            self._sfx("shop_buy")
             if self._ach_manager:
                 self._ach_manager.unlock("apothecary")
 
@@ -1093,6 +1097,10 @@ class HubScreen:
             pygame.draw.rect(s, color, (16, 3, 12, 22), border_radius=1, width=2)
             pygame.draw.line(s, color, (15, 3), (15, 25), 2)
         self.screen.blit(s, (cx - 15, cy))
+
+    def _sfx(self, name: str):
+        if self._snd:
+            self._snd.play(name)
 
     def _start_fade(self, target: float, duration_sec: float):
         self._fade_target = target

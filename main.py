@@ -74,6 +74,8 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
         heal = int(player.max_hp * 0.3)
         player.current_hp = min(player.max_hp, player.current_hp + heal)
         dungeon.mark_cleared()
+        if snd:
+            snd.play("rest_heal")
         return "rest"
 
     elif rtype == RoomType.SHOP:
@@ -188,6 +190,7 @@ def main():
                         elif event.key == pygame.K_a:
                             hub_screen.open_achievements()
                         elif event.key == pygame.K_ESCAPE:
+                            snd.play("menu_back")
                             hub_screen.cancel()
 
                     elif sub == HubSubState.SMITHY_INVENTORY:
@@ -200,6 +203,7 @@ def main():
                         elif event.key == pygame.K_f:
                             hub_screen.smithy_sort()
                         elif event.key == pygame.K_ESCAPE:
+                            snd.play("menu_back")
                             hub_screen.cancel()
                             save_game(player, snd, ach_manager, current_floor)
 
@@ -211,6 +215,7 @@ def main():
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             hub_screen.shop_buy()
                         elif event.key == pygame.K_ESCAPE:
+                            snd.play("menu_back")
                             hub_screen.cancel()
                             save_game(player, snd, ach_manager, current_floor)
 
@@ -222,6 +227,7 @@ def main():
                                 snd.play_title_music()
                                 state = GameState.TITLE
                         elif event.key in (pygame.K_n, pygame.K_ESCAPE):
+                            snd.play("menu_back")
                             hub_screen.decline_return()
 
                     elif sub == HubSubState.TOAST:
@@ -235,6 +241,7 @@ def main():
                         elif event.key in (pygame.K_s, pygame.K_DOWN):
                             hub_screen.achievements_move_down()
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                            snd.play("menu_back")
                             hub_screen.cancel()
                             save_game(player, snd, ach_manager, current_floor)
 
@@ -340,6 +347,7 @@ def main():
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
                         current_floor = dungeon_run.floor + 1
+                        snd.play("floor_up")
                         dungeon_sub = ""
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
@@ -372,7 +380,7 @@ def main():
                             elif combat._level_ups:
                                 # First ENTER — show level-up celebration
                                 combat.victory_phase = "level_up"
-                                snd.play("victory")
+                                snd.play("level_up")
                             else:
                                 # No level-up, exit battle
                                 snd.stop_battle_music()
@@ -443,6 +451,7 @@ def main():
                         elif event.key == pygame.K_f:
                             combat.sort_inventory()
                         elif event.key in (pygame.K_ESCAPE, pygame.K_b, pygame.K_i):
+                            snd.play("menu_back")
                             combat.close_inventory()
 
                     elif combat.state == TurnState.MENU_SELECT:
@@ -463,6 +472,7 @@ def main():
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             combat.confirm_sub_action()
                         elif event.key in (pygame.K_ESCAPE, pygame.K_b):
+                            snd.play("menu_back")
                             combat.cancel_sub_menu()
 
                     elif combat.state == TurnState.ITEM_SELECT:
@@ -473,6 +483,7 @@ def main():
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             combat.confirm_sub_action()
                         elif event.key in (pygame.K_ESCAPE, pygame.K_b):
+                            snd.play("menu_back")
                             combat.cancel_sub_menu()
 
         # ── State updates ─────────────────────────────────────────
@@ -494,7 +505,7 @@ def main():
                         os.remove("achievements.json")
                     ach_manager.reset()
                     current_floor = 1
-                hub_screen = HubScreen(screen, player, ach_manager)
+                hub_screen = HubScreen(screen, player, ach_manager, snd)
                 hub_screen.start_fade_in()
                 snd.play_hub_music()
                 save_game(player, snd, ach_manager, current_floor)  # Ensure save exists on hub entry
@@ -524,6 +535,8 @@ def main():
                     dungeon_sub = ""
                     if dungeon_run.done:
                         current_floor = dungeon_run.floor + 1
+                        snd.play("floor_up")
+                        ach_manager.inc("dungeons_completed")
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         save_game(player, snd, ach_manager, current_floor)
@@ -581,6 +594,7 @@ def main():
             next_toast = ach_manager.pop_toast()
             if next_toast:
                 ach_toast.show(next_toast)
+                snd.play("achievement_unlock")
         if not ach_toast.is_idle():
             ach_toast.draw(screen)
 

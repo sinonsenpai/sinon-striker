@@ -1,18 +1,20 @@
 {
   "unlocked": [
-    "slayer",
-    "delver",
     "novice",
+    "delver",
+    "set_bonus",
+    "apothecary",
+    "merchant",
     "first_blood",
-    "set_bonus"
+    "slayer"
   ],
   "counters": {
-    "level_reached": 5,
+    "level_reached": 6,
     "deepest_floor": 4,
-    "kills": 11,
-    "gold_earned": 369,
-    "items_found": 13,
-    "dungeons_completed": 3,
+    "kills": 15,
+    "gold_earned": 572,
+    "items_found": 18,
+    "dungeons_completed": 4,
     "crits": 1
   }
 }

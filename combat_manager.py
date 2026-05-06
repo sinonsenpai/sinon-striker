@@ -215,9 +215,11 @@ class CombatManager:
     def _confirm_skill(self):
         skill = SKILL_DEFS[self.sub_selected_index]
         if skill["name"] in self.player.skill_cooldowns:
+            self._sfx("error")
             self._add_log(f"{skill['name']} is on cooldown!")
             return
         if self.player.sp < skill.get("cost", 0):
+            self._sfx("error")
             self._add_log(f"Not enough SP! Need {skill['cost']}, have {self.player.sp}.")
             return
         self._execute_skill(skill)
@@ -389,7 +391,7 @@ class CombatManager:
                 self._award_xp()
                 self.state = TurnState.VICTORY
                 self._add_log(f"{self.enemy.name} defeated! Victory!")
-                self._sfx("victory")
+                self._sfx("boss_defeated" if self.is_boss else "victory")
                 self._award_gold()
                 self._drop_loot()
                 return
@@ -494,7 +496,7 @@ class CombatManager:
             self._award_xp()
             self.state = TurnState.VICTORY
             self._add_log(f"{self.enemy.name} defeated! Victory!")
-            self._sfx("victory")
+            self._sfx("boss_defeated" if self.is_boss else "victory")
             self._award_gold()
             self._drop_loot()
         else:
@@ -513,7 +515,7 @@ class CombatManager:
                 self._boss_phase2_triggered = True
                 self.enemy._base_atk = int(self.enemy._base_atk * 1.5)
                 self._add_log("The Abyssal Warden roars and enters Phase 2!")
-                self._sfx("enemy_turn")
+                self._sfx("boss_roar")
 
         # Brute Smash: every 3 turns, 1.5x damage
         is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0

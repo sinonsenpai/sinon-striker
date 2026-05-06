@@ -105,6 +105,48 @@ SOUND_ENVELOPES = {
     "enemy_turn": [
         (120, 0.06, "square"),
     ],
+    "achievement_unlock": [
+        (880, 0.08, "sine"),
+        (1100, 0.08, "sine"),
+        (1320, 0.15, "sine"),
+    ],
+    "boss_roar": [
+        ((300, 80), 0.4, "sweep_down"),
+    ],
+    "floor_up": [
+        (523, 0.06, "sine"),
+        (659, 0.06, "sine"),
+        (784, 0.10, "sine"),
+    ],
+    "rest_heal": [
+        (400, 0.10, "sine"),
+        (500, 0.15, "sine"),
+    ],
+    "shop_buy": [
+        ((500, 800), 0.12, "sweep_up"),
+    ],
+    "shop_sell": [
+        (600, 0.06, "sine"),
+        (400, 0.06, "sine"),
+    ],
+    "menu_back": [
+        ((500, 300), 0.08, "sweep_down"),
+    ],
+    "error": [
+        (200, 0.10, "square"),
+    ],
+    "boss_defeated": [
+        (659, 0.10, "sine"),
+        (784, 0.10, "sine"),
+        (988, 0.10, "sine"),
+        (1319, 0.25, "sine"),
+        (1760, 0.30, "sine"),
+    ],
+    "level_up": [
+        (784, 0.06, "sine"),
+        (988, 0.06, "sine"),
+        (1175, 0.12, "sine"),
+    ],
 }
 
 SOUND_VOLUMES = {
@@ -112,6 +154,9 @@ SOUND_VOLUMES = {
     "skill": 0.30, "buff": 0.20, "crit": 0.40,
     "victory": 0.30, "menu_select": 0.20, "menu_confirm": 0.25,
     "item_use": 0.20, "loot_drop": 0.20, "enemy_turn": 0.15,
+    "achievement_unlock": 0.35, "boss_roar": 0.40, "floor_up": 0.25,
+    "rest_heal": 0.20, "shop_buy": 0.20, "shop_sell": 0.20,
+    "menu_back": 0.20, "error": 0.30, "boss_defeated": 0.35, "level_up": 0.30,
 }
 
 
