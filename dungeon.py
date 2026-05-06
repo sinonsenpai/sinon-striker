@@ -89,7 +89,11 @@ BRANCH_POINTS = {2, 4}
 ENEMY_POOL = {
     "slime": {"name": "Slime", "hp": 50, "atk": 8, "defn": 3, "eva": 0.02, "gold_min": 10, "gold_max": 20, "xp_reward": 15},
     "dragon": {"name": "Dragon", "hp": 80, "atk": 14, "defn": 6, "eva": 0.05, "gold_min": 20, "gold_max": 40, "xp_reward": 30},
+    "wisp": {"name": "Wisp", "hp": 40, "atk": 10, "defn": 2, "eva": 0.07, "gold_min": 12, "gold_max": 22, "xp_reward": 18},
+    "cultist": {"name": "Cultist", "hp": 70, "atk": 12, "defn": 4, "eva": 0.05, "gold_min": 18, "gold_max": 35, "xp_reward": 35},
     "brute": {"name": "Vanguard Brute", "hp": 120, "atk": 18, "defn": 8, "eva": 0.03, "gold_min": 25, "gold_max": 50, "xp_reward": 50},
+    "golem": {"name": "Golem", "hp": 150, "atk": 16, "defn": 14, "eva": 0.01, "gold_min": 30, "gold_max": 60, "xp_reward": 55},
+    "stalker": {"name": "Shadow Stalker", "hp": 60, "atk": 15, "defn": 3, "eva": 0.12, "gold_min": 28, "gold_max": 55, "xp_reward": 45},
     "abyssal_warden": {"name": "Abyssal Warden", "hp": 250, "atk": 25, "defn": 12, "eva": 0.08, "gold_min": 80, "gold_max": 150, "xp_reward": 100},
 }
 
@@ -118,7 +122,7 @@ def generate_dungeon(floor: int) -> list:
     rooms = []
 
     # First room: always combat (warmup)
-    enemy = "dragon" if floor >= 2 else "slime"
+    enemy = _pick_enemy(floor)
     rooms.append({
         "type": RoomType.COMBAT,
         "enemy": enemy,
@@ -171,7 +175,8 @@ def _generate_room(floor: int) -> dict:
         enemy = None
     else:
         rtype = RoomType.ELITE
-        enemy = "brute" if floor >= 1 else "dragon"
+        elite_pool = ["brute"] if floor < 3 else ["brute", "golem", "stalker"]
+        enemy = random.choice(elite_pool)
     return {
         "type": rtype,
         "enemy": enemy,
@@ -183,10 +188,17 @@ def _generate_room(floor: int) -> dict:
 
 def _pick_enemy(floor: int) -> str:
     """Pick a random enemy appropriate for the floor."""
+    pool = ["slime", "dragon"]
     if floor >= 2:
-        return random.choice(["dragon", "brute"])
-    else:
-        return random.choice(["slime", "dragon"])
+        pool.append("brute")
+        pool.append("cultist")
+    if floor >= 3:
+        pool.append("wisp")
+    if floor >= 4:
+        pool.append("golem")
+    if floor >= 6:
+        pool.append("stalker")
+    return random.choice(pool)
 
 
 class DungeonRun:

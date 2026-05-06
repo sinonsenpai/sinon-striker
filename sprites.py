@@ -176,10 +176,119 @@ def _draw_vanguard(surf, w, h):
                                                    (club_x + 1, club_y - 8)])  # axe head
 
 
+def _draw_wisp(surf, w, h):
+    """Floating flame spirit — orange teardrop with glowing eye."""
+    cx, cy = w // 2, h // 2
+    # Flame body (teardrop shape)
+    flame = [(cx, cy - 8), (cx - 6, cy + 2), (cx + 6, cy + 2)]
+    pygame.draw.polygon(surf, (255, 120, 20), flame)
+    # Inner glow
+    inner = [(cx, cy - 5), (cx - 3, cy + 1), (cx + 3, cy + 1)]
+    pygame.draw.polygon(surf, (255, 200, 60), inner)
+    # Floating wisps
+    for dx, dy in [(-8, -4), (8, -4), (-6, 2), (6, 2)]:
+        pygame.draw.circle(surf, (255, 160, 40), (cx + dx, cy + dy), 1)
+    # Eye
+    pygame.draw.circle(surf, (255, 255, 200), (cx, cy - 2), 2)
+    pygame.draw.circle(surf, (255, 255, 255), (cx, cy - 2), 1)
+
+
+def _draw_cultist(surf, w, h):
+    """Dark magic user — purple robe, hood, red eyes."""
+    cx, cy = w // 2, h // 2
+    # Robe body
+    pygame.draw.polygon(surf, (50, 15, 60), [(cx - 7, cy + 4), (cx, cy - 2), (cx + 7, cy + 4), (cx + 4, cy + 10), (cx - 4, cy + 10)])
+    # Hood (pointed)
+    hood_points = [(cx - 6, cy + 2), (cx, cy - 10), (cx + 6, cy + 2)]
+    pygame.draw.polygon(surf, (40, 10, 50), hood_points)
+    # Eyes (glowing red)
+    pygame.draw.circle(surf, (255, 30, 30), (cx - 2, cy - 2), 2)
+    pygame.draw.circle(surf, (255, 30, 30), (cx + 2, cy - 2), 2)
+    pygame.draw.circle(surf, (255, 100, 100), (cx - 2, cy - 2), 1)
+    pygame.draw.circle(surf, (255, 100, 100), (cx + 2, cy - 2), 1)
+    # Dark aura (fixed positions)
+    for ax, ay in [(cx - 6, cy + 8), (cx, cy + 10), (cx + 6, cy + 7)]:
+        pygame.draw.circle(surf, (80, 20, 100), (ax, ay), 1)
+
+
+def _draw_golem(surf, w, h):
+    """Stone guardian — big gray blocks, cracks, glowing core."""
+    cx, cy = w // 2, h // 2
+    # Body
+    pygame.draw.rect(surf, (90, 85, 75), (cx - 9, cy - 2, 18, 16), border_radius=2)
+    # Head
+    pygame.draw.rect(surf, (100, 95, 85), (cx - 6, cy - 10, 12, 10), border_radius=2)
+    # Shoulder plates
+    pygame.draw.rect(surf, (80, 75, 65), (cx - 11, cy - 2, 22, 4), border_radius=1)
+    # Arms
+    pygame.draw.rect(surf, (85, 80, 70), (cx - 12, cy + 2, 4, 8))
+    pygame.draw.rect(surf, (85, 80, 70), (cx + 8, cy + 2, 4, 8))
+    # Core (glowing orange)
+    pygame.draw.circle(surf, (255, 140, 30), (cx, cy + 4), 3)
+    pygame.draw.circle(surf, (255, 200, 100), (cx, cy + 4), 1)
+    # Crack lines
+    pygame.draw.line(surf, (60, 55, 45), (cx - 2, cy - 6), (cx - 4, cy - 2), 1)
+    pygame.draw.line(surf, (60, 55, 45), (cx + 3, cy - 7), (cx + 5, cy - 3), 1)
+    # Eyes (empty sockets)
+    pygame.draw.circle(surf, (30, 28, 25), (cx - 3, cy - 6), 2)
+    pygame.draw.circle(surf, (30, 28, 25), (cx + 3, cy - 6), 2)
+
+
+def _draw_shadow_stalker(surf, w, h):
+    """Stealth assassin — dark slender, cape, green eyes."""
+    cx, cy = w // 2, h // 2
+    # Cape (wide dark triangle)
+    cape_points = [(cx - 9, cy - 2), (cx, cy + 12), (cx + 9, cy - 2)]
+    pygame.draw.polygon(surf, (15, 15, 25), cape_points)
+    # Body (lean)
+    pygame.draw.rect(surf, (25, 25, 40), (cx - 4, cy - 4, 8, 14), border_radius=1)
+    # Hood/mask
+    pygame.draw.polygon(surf, (20, 20, 35), [(cx - 5, cy), (cx, cy - 10), (cx + 5, cy)])
+    # Eyes (glowing green)
+    pygame.draw.circle(surf, (50, 255, 80), (cx - 2, cy - 4), 2)
+    pygame.draw.circle(surf, (50, 255, 80), (cx + 2, cy - 4), 2)
+    pygame.draw.circle(surf, (150, 255, 180), (cx - 2, cy - 4), 1)
+    pygame.draw.circle(surf, (150, 255, 180), (cx + 2, cy - 4), 1)
+    # Dagger
+    pygame.draw.line(surf, (180, 180, 200), (cx + 5, cy + 2), (cx + 12, cy - 4), 1)
+    pygame.draw.line(surf, (200, 200, 220), (cx + 12, cy - 4), (cx + 14, cy - 6), 1)
+
+
+def _draw_abyssal_warden(surf, w, h):
+    """Abyssal Warden boss — large demonic form, dark red/gold."""
+    cx, cy = w // 2, h // 2
+    # Body
+    pygame.draw.rect(surf, (120, 15, 25), (cx - 9, cy - 3, 18, 18), border_radius=3)
+    # Head
+    pygame.draw.polygon(surf, (140, 20, 30), [(cx - 6, cy - 4), (cx, cy - 12), (cx + 6, cy - 4)])
+    # Horns
+    pygame.draw.polygon(surf, (200, 180, 60), [(cx - 4, cy - 10), (cx - 7, cy - 16), (cx - 2, cy - 10)])
+    pygame.draw.polygon(surf, (200, 180, 60), [(cx + 4, cy - 10), (cx + 7, cy - 16), (cx + 2, cy - 10)])
+    # Eyes (white with red pupil)
+    pygame.draw.circle(surf, (255, 255, 255), (cx - 3, cy - 7), 2)
+    pygame.draw.circle(surf, (255, 255, 255), (cx + 3, cy - 7), 2)
+    pygame.draw.circle(surf, (255, 20, 20), (cx - 3, cy - 7), 1)
+    pygame.draw.circle(surf, (255, 20, 20), (cx + 3, cy - 7), 1)
+    # Wings
+    wing_left = [(cx - 9, cy), (cx - 16, cy - 6), (cx - 8, cy + 2)]
+    wing_right = [(cx + 9, cy), (cx + 16, cy - 6), (cx + 8, cy + 2)]
+    pygame.draw.polygon(surf, (80, 10, 15), wing_left)
+    pygame.draw.polygon(surf, (80, 10, 15), wing_right)
+    # Gold trim
+    pygame.draw.rect(surf, (200, 180, 60), (cx - 9, cy + 13, 18, 2))
+    pygame.draw.rect(surf, (200, 180, 60), (cx - 7, cy + 4, 2, 8))
+    pygame.draw.rect(surf, (200, 180, 60), (cx + 5, cy + 4, 2, 8))
+
+
 ENEMY_DRAW_FUNCS = {
     "Slime": _draw_slime,
     "Dragon": _draw_dragon,
     "Vanguard Brute": _draw_vanguard,
+    "Wisp": _draw_wisp,
+    "Cultist": _draw_cultist,
+    "Golem": _draw_golem,
+    "Shadow Stalker": _draw_shadow_stalker,
+    "Abyssal Warden": _draw_abyssal_warden,
 }
 
 

@@ -633,24 +633,38 @@ class CombatManager:
         is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0
         # Boss Warden's Wrath: every 3 turns, 2x damage
         is_wrath = self.is_boss and self._enemy_turn_count % 3 == 0
-        mult = 2.0 if is_wrath else (1.5 if is_smash else 1.0)
-        skill_name = "Warden's Wrath! " if is_wrath else ("Brute Smash! " if is_smash else "")
+        # Golem Crush: every 3 turns, 2x damage with partial DEF ignore
+        is_crush = self.enemy.name == "Golem" and self._enemy_turn_count % 3 == 0
+        mult = 2.0 if is_wrath else (2.0 if is_crush else (1.5 if is_smash else 1.0))
+        skill_name = ("Warden's Wrath! " if is_wrath else
+                      ("Crush! " if is_crush else
+                       ("Brute Smash! " if is_smash else "")))
 
-        damage = max(1, int(total_atk * mult - total_def))
+        effective_def = total_def // 2 if is_crush else total_def
+        damage = max(1, int(total_atk * mult - effective_def))
         actual = self.player.take_damage(damage)
         self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False}
         self._sfx("player_hit")
         self._shake_source = "enemy"
         self._add_log(f"{self.enemy.name} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
 
-        # Enemy status application (not on smash/wrath specials)
-        if self.player.is_alive and not is_wrath and not is_smash:
+        # Enemy status application (not on smash/wrath/crush specials)
+        if self.player.is_alive and not is_wrath and not is_smash and not is_crush:
             if self.enemy.name == "Dragon" and random.random() < 0.3:
                 self.player.add_status("burn", "debuff", 3, {"potency": 6})
                 self._add_log(f"{self.enemy.name}'s flames burn you! (Burn 3 turns)")
+            elif self.enemy.name == "Wisp" and random.random() < 0.5:
+                self.player.add_status("burn", "debuff", 3, {"potency": 5})
+                self._add_log(f"{self.enemy.name}'s eerie flame burns you! (Burn 3 turns)")
+            elif self.enemy.name == "Cultist" and random.random() < 0.4:
+                self.player.add_status("poison", "debuff", 3, {})
+                self._add_log(f"{self.enemy.name}'s dark magic poisons you! (Poison 3 turns)")
             elif self.enemy.name == "Vanguard Brute" and random.random() < 0.25:
                 self.player.add_status("stun", "debuff", 1, {})
                 self._add_log(f"{self.enemy.name}'s impact stuns you! (Stun)")
+            elif self.enemy.name == "Shadow Stalker" and random.random() < 0.3:
+                self.player.add_status("stun", "debuff", 1, {})
+                self._add_log(f"{self.enemy.name}'s shadow strike stuns you! (Stun)")
 
         if not self.player.is_alive:
             self.state = TurnState.DEFEAT
