@@ -11,7 +11,7 @@ import pygame
 from character import Character, Enemy
 from combat_manager import CombatManager, TurnState, MenuAction, MENU_OPTIONS, SKILL_DEFS
 from item import Rarity, ItemSlot, Consumable
-from sprites import get_sinon_sprite, get_enemy_sprite, SpriteAnim
+from sprites import get_sinon_sprite, get_enemy_sprite, get_skill_icon, SpriteAnim
 
 
 # ── Color palette (anime glass, unchanged) ──
@@ -1160,24 +1160,34 @@ class BattleUI:
             sp_surf = self.font_hud.render(sp_text, True, sp_color)
             sp_x = btn_rect.x + inner_w - sp_surf.get_width() - btn_pad_x
 
+            # Skill icon (left side)
+            icon_surf = get_skill_icon(skill["name"])
+            icon_x = btn_rect.x + 4
+            icon_y = btn_y + (btn_h - icon_surf.get_height()) // 2
+            self.screen.blit(icon_surf, (icon_x, icon_y))
+
+            # Text offset (icon width + gap)
+            text_offset = 36  # 32px icon + 4px gap
+            name_x = btn_rect.x + btn_pad_x + text_offset
+
             # Name
             name_color = DIM_WHITE if not can_afford else (NEON_CYAN if i == combat.sub_selected_index else YELLOW)
             prefix = "> " if i == combat.sub_selected_index else ""
             full_name = prefix + skill["name"]
-            name_max_w = sp_x - btn_pad_x - (btn_rect.x + btn_pad_x) - 10
+            name_max_w = sp_x - btn_pad_x - name_x - 10
             name_font = self.font_stat
             if name_font.size(full_name)[0] > name_max_w:
                 name_font = pygame.font.SysFont("arial", 16, bold=True)
             name_surf = name_font.render(full_name, True, name_color)
             name_row_y = btn_y + btn_pad_y
-            self.screen.blit(name_surf, (btn_rect.x + btn_pad_x, name_row_y))
+            self.screen.blit(name_surf, (name_x, name_row_y))
             self.screen.blit(sp_surf, (sp_x, name_row_y))
 
-            # Description (1 line)
+            # Description (1 line, shifted right)
             desc_font = self.font_card_desc
             desc_surf = desc_font.render(skill["desc"], True, (140, 140, 165))
             desc_y = name_row_y + name_surf.get_height() + 3
-            self.screen.blit(desc_surf, (btn_rect.x + btn_pad_x, desc_y))
+            self.screen.blit(desc_surf, (name_x, desc_y))
 
         # Scroll indicators
         arrow_y = y + content_pad

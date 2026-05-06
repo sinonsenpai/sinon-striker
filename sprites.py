@@ -297,6 +297,76 @@ def get_enemy_sprite(enemy_name: str):
     return make_pixel_sprite(draw)
 
 
+# ── Skill Icons ───────────────────────────────────────────────────────
+
+def _icon_star(surf, w, h):
+    """Star-Shatter Strike — four-pointed cyan star."""
+    cx, cy = w // 2, h // 2
+    color = (0, 240, 255)
+    pts = [(cx, cy - 6), (cx + 2, cy - 2), (cx + 6, cy), (cx + 2, cy + 2),
+           (cx, cy + 6), (cx - 2, cy + 2), (cx - 6, cy), (cx - 2, cy - 2)]
+    pygame.draw.polygon(surf, color, pts)
+    pygame.draw.circle(surf, (100, 250, 255), (cx, cy), 2)
+
+
+def _icon_target(surf, w, h):
+    """Astral Focus — crosshair/target reticle."""
+    cx, cy = w // 2, h // 2
+    color = (0, 210, 230)
+    pygame.draw.circle(surf, color, (cx, cy), 6, 1)
+    pygame.draw.line(surf, color, (cx, cy - 5), (cx, cy + 5), 1)
+    pygame.draw.line(surf, color, (cx - 5, cy), (cx + 5, cy), 1)
+    pygame.draw.circle(surf, (100, 240, 255), (cx, cy), 2)
+
+
+def _icon_flame(surf, w, h):
+    """Blazing Strike — orange/red flame."""
+    cx, cy = w // 2, h // 2
+    flame_pts = [(cx, cy - 7), (cx - 4, cy - 1), (cx - 2, cy + 3), (cx, cy + 6),
+                 (cx + 2, cy + 3), (cx + 4, cy - 1)]
+    pygame.draw.polygon(surf, (255, 120, 20), flame_pts)
+    inner_pts = [(cx, cy - 4), (cx - 2, cy - 1), (cx, cy + 3), (cx + 2, cy - 1)]
+    pygame.draw.polygon(surf, (255, 200, 60), inner_pts)
+
+
+def _icon_drip(surf, w, h):
+    """Venom Strike — green poison drip."""
+    cx, cy = w // 2, h // 2
+    color = (80, 200, 60)
+    drip_pts = [(cx, cy - 6), (cx - 4, cy + 1), (cx + 4, cy + 1)]
+    pygame.draw.polygon(surf, color, drip_pts)
+    pygame.draw.circle(surf, color, (cx, cy + 4), 2)
+    highlight = [(cx, cy - 3), (cx - 1, cy), (cx + 1, cy)]
+    pygame.draw.polygon(surf, (140, 240, 120), highlight)
+
+
+def _icon_bolt(surf, w, h):
+    """Shockwave — yellow lightning bolt."""
+    cx, cy = w // 2, h // 2
+    color = (255, 230, 60)
+    bolt_pts = [(cx + 2, cy - 6), (cx - 2, cy - 1), (cx + 1, cy - 1),
+                (cx - 2, cy + 5), (cx + 1, cy + 1), (cx - 1, cy + 1)]
+    pygame.draw.polygon(surf, color, bolt_pts)
+    pygame.draw.circle(surf, (255, 250, 200), (cx - 1, cy - 5), 1)
+
+
+SKILL_ICONS = {
+    "Star-Shatter Strike": _icon_star,
+    "Astral Focus": _icon_target,
+    "Blazing Strike": _icon_flame,
+    "Venom Strike": _icon_drip,
+    "Shockwave": _icon_bolt,
+}
+
+
+def get_skill_icon(skill_name: str):
+    """Return a 32x32 pixel-art icon surface for the given skill name."""
+    draw = SKILL_ICONS.get(skill_name)
+    if draw is None:
+        return pygame.Surface((32, 32), pygame.SRCALPHA)
+    return make_pixel_sprite(draw, base_size=(16, 16), display_size=(32, 32))
+
+
 # ── Hub Sinon (smaller) ────────────────────────────────────────────────
 
 def get_hub_sinon():
