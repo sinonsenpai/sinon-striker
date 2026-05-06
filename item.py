@@ -169,16 +169,24 @@ class LootGenerator:
     """Generates random loot items based on a rarity table."""
 
     @staticmethod
-    def _roll_rarity() -> Rarity:
-        """Roll for item rarity using weighted probabilities."""
-        rarities = list(RARITY_WEIGHTS.keys())
-        weights = list(RARITY_WEIGHTS.values())
-        return random.choices(rarities, weights=weights, k=1)[0]
+    def _roll_rarity(floor: int = 1) -> Rarity:
+        """Roll for item rarity using weighted probabilities, boosted by floor."""
+        weights = dict(RARITY_WEIGHTS)
+        if floor >= 8:
+            weights[Rarity.RARE] += 10
+            weights[Rarity.EPIC] += 5
+            weights[Rarity.LEGENDARY] += 1
+        elif floor >= 4:
+            weights[Rarity.RARE] += 5
+            weights[Rarity.EPIC] += 2
+        rarities = list(weights.keys())
+        weight_vals = list(weights.values())
+        return random.choices(rarities, weights=weight_vals, k=1)[0]
 
     @staticmethod
-    def generate() -> Union[Item, Consumable]:
+    def generate(floor: int = 1) -> Union[Item, Consumable]:
         """Generate a random Weapon, Armor, or Consumable with rarity-scaled stats."""
-        rarity = LootGenerator._roll_rarity()
+        rarity = LootGenerator._roll_rarity(floor)
         multiplier = RARITY_STAT_MULTIPLIER[rarity]
 
         # 60% weapon, 28% armor, 12% consumable

@@ -65,7 +65,7 @@ class CombatManager:
 
     ENEMY_DELAY_MS = 1000
 
-    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None, is_boss: bool = False):
+    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None, is_boss: bool = False, floor: int = 1):
         self.player = player
         self.enemy = enemy
         self._state = TurnState.WAIT
@@ -75,6 +75,7 @@ class CombatManager:
         self._ach_manager = ach_manager
         self.in_dungeon = False  # set True when in a dungeon run
         self.is_boss = is_boss
+        self.floor = floor
 
         # Menu selection tracking
         self.selected_index: int = 0
@@ -415,12 +416,12 @@ class CombatManager:
 
     def _drop_loot(self):
         """Generate a random loot drop and add it to the player's inventory or consumables."""
-        item = LootGenerator.generate()
+        item = LootGenerator.generate(floor=self.floor)
         # Boss guarantees Rare+ drop
         if self.is_boss:
             from item import Rarity
             while getattr(item, "rarity", None) == Rarity.COMMON:
-                item = LootGenerator.generate()
+                item = LootGenerator.generate(floor=self.floor)
         if isinstance(item, Consumable):
             merge_into_stack(self.player.consumables, item)
         else:

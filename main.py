@@ -54,17 +54,20 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
     if rtype == RoomType.COMBAT or rtype == RoomType.ELITE or rtype == RoomType.BOSS:
         # Create enemy and go to battle
         enemy_data = ENEMY_POOL.get(room["enemy"], ENEMY_POOL["slime"])
+        if "floor" in room:
+            from dungeon import scale_enemy
+            enemy_data = scale_enemy(enemy_data, room["floor"])
         enemy = Enemy(
             enemy_data["name"], enemy_data["hp"], enemy_data["atk"], enemy_data["defn"],
             enemy_data.get("xp_reward", 0),
             enemy_data.get("gold_min", 20), enemy_data.get("gold_max", 40)
         )
         is_boss = rtype == RoomType.BOSS
-        combat = CombatManager(player, enemy, snd, ach_manager, is_boss=is_boss)
+        combat = CombatManager(player, enemy, snd, ach_manager, is_boss=is_boss, floor=room.get("floor", 1))
         return ("battle", combat)
 
     elif rtype == RoomType.LOOT:
-        item = LootGenerator.generate()
+        item = LootGenerator.generate(floor=room.get("floor", 1))
         return ("loot", item)
 
     elif rtype == RoomType.REST:

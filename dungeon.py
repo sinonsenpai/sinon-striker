@@ -94,6 +94,24 @@ ENEMY_POOL = {
 }
 
 
+def scale_enemy(base: dict, floor: int) -> dict:
+    """Scale enemy stats by floor. Bosses scale slightly less per floor."""
+    if floor <= 1:
+        return dict(base)
+    mult = 1.0 + (floor - 1) * 0.15  # +15% stats per floor
+    is_boss = base.get("name") == "Abyssal Warden"
+    if is_boss:
+        mult = 1.0 + (floor - 1) * 0.10  # Boss scales slower but starts higher
+    scaled = dict(base)
+    scaled["hp"] = max(1, int(base["hp"] * mult))
+    scaled["atk"] = max(1, int(base["atk"] * mult))
+    scaled["defn"] = max(1, int(base["defn"] * mult))
+    scaled["gold_min"] = int(base["gold_min"] * mult)
+    scaled["gold_max"] = int(base["gold_max"] * mult)
+    scaled["xp_reward"] = int(base["xp_reward"] * mult)
+    return scaled
+
+
 def generate_dungeon(floor: int) -> list:
     """Generate a dungeon run of 4-6 rooms."""
     rooms = []
@@ -104,6 +122,7 @@ def generate_dungeon(floor: int) -> list:
         "type": RoomType.COMBAT,
         "enemy": enemy,
         "cleared": False,
+        "floor": floor,
         "flavor": random.choice(FLAVOR[RoomType.COMBAT]),
     })
 
@@ -118,6 +137,7 @@ def generate_dungeon(floor: int) -> list:
             "type": RoomType.BOSS,
             "enemy": "abyssal_warden",
             "cleared": False,
+            "floor": floor,
             "flavor": random.choice(FLAVOR[RoomType.BOSS]),
         }
 
@@ -126,6 +146,7 @@ def generate_dungeon(floor: int) -> list:
         "type": RoomType.EXIT,
         "enemy": None,
         "cleared": False,
+        "floor": floor,
         "flavor": random.choice(FLAVOR[RoomType.EXIT]),
     })
 
@@ -154,6 +175,7 @@ def _generate_room(floor: int) -> dict:
         "type": rtype,
         "enemy": enemy,
         "cleared": False,
+        "floor": floor,
         "flavor": random.choice(FLAVOR[rtype]),
     }
 
