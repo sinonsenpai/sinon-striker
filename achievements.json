@@ -1,15 +1,16 @@
 {
   "unlocked": [
+    "delver",
     "set_bonus",
-    "first_blood",
-    "delver"
+    "first_blood"
   ],
   "counters": {
     "level_reached": 1,
     "deepest_floor": 1,
-    "kills": 2,
-    "gold_earned": 32,
-    "items_found": 4,
+    "crits": 1,
+    "kills": 3,
+    "gold_earned": 45,
+    "items_found": 3,
     "dungeons_completed": 1
   }
 }

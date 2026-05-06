@@ -1,7 +1,7 @@
 {
-  "gold": 112,
+  "gold": 105,
   "level": 1,
-  "xp": 30,
+  "xp": 45,
   "xp_to_next": 50,
   "base_atk": 15,
   "base_def": 5,
@@ -28,35 +28,28 @@
   "inventory": [
     {
       "type": "weapon",
-      "name": "Mace",
-      "rarity": "COMMON",
-      "atk": 3,
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 6,
       "defense": 0,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Chainmail",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
       "set_name": null
     },
     {
       "type": "weapon",
-      "name": "Blade",
-      "rarity": "COMMON",
-      "atk": 3,
-      "defense": 0,
-      "set_name": null
-    },
-    {
-      "type": "weapon",
-      "name": "Scimitar",
+      "name": "Sword",
       "rarity": "COMMON",
       "atk": 3,
       "defense": 0,
       "set_name": null
     }
   ],
-  "consumables": [
-    {
-      "name": "Potion",
-      "rarity": "COMMON",
-      "hp_restore": 15,
-      "quantity": 1
-    }
-  ]
+  "consumables": []
 }

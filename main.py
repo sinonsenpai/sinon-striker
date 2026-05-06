@@ -82,7 +82,9 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
         player.gold += bonus
         dungeon.total_gold += bonus
         dungeon.mark_cleared()
-        return "complete"
+        if ach_manager:
+            ach_manager.inc("dungeons_completed")
+        return ("complete", dungeon.floor)
 
     return None
 
@@ -281,7 +283,7 @@ def main():
                             dungeon_sub = "rest"
                         elif result == "shop":
                             dungeon_sub = "shop"
-                        elif result == "complete":
+                        elif isinstance(result, tuple) and result[0] == "complete":
                             dungeon_sub = "complete"
                         elif isinstance(result, tuple) and result[0] == "battle":
                             combat = result[1]
@@ -334,8 +336,7 @@ def main():
                     elif event.key == pygame.K_ESCAPE and dungeon_sub == "complete":
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
-                        current_floor += 1
-                        ach_manager.inc("dungeons_completed")
+                        current_floor = dungeon_run.floor + 1
                         dungeon_sub = ""
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
@@ -518,8 +519,7 @@ def main():
                     dungeon_run.advance()
                     dungeon_sub = ""
                     if dungeon_run.done:
-                        current_floor += 1
-                        ach_manager.inc("dungeons_completed")
+                        current_floor = dungeon_run.floor + 1
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         save_game(player, snd, ach_manager, current_floor)
