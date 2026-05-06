@@ -228,6 +228,9 @@ class BattleUI:
         # Level-up overlay animation
         self._lvl_up_scale = 0.0
 
+        # Scroll state for skill menu
+        self._skill_scroll = 0
+
         # Visual FX
         self._floating_texts = []
         self._sparks = []
@@ -242,7 +245,7 @@ class BattleUI:
     def _tray_top(self):
         return self._stage_bottom()
 
-    def _tray_height(self):
+    def _tray_height(self, state=None):
         return self.h - self._tray_top()
 
     # ── Glass panel ──
@@ -1032,7 +1035,7 @@ class BattleUI:
 
     def _draw_tray(self, combat: CombatManager):
         tray_y = self._tray_top()
-        tray_h = self._tray_height()
+        tray_h = self._tray_height(combat.state)
 
         # Dark gradient background for tray
         tray_surf = pygame.Surface((self.w, tray_h), pygame.SRCALPHA)
@@ -1106,18 +1109,33 @@ class BattleUI:
             self.screen.blit(surf, (x + inner_pad, btn_y + (btn_h - surf.get_height()) // 2))
 
     def _draw_skill_menu(self, combat, x, y, w, h):
-        """Draw the skill sub-menu — padded buttons, wrapped desc, SP aligned to name row."""
+        """Draw the skill sub-menu — scrollable when 4+ skills."""
         player = combat.player
-        content_pad = 15    # padding from panel edges
-        btn_pad_x = 14      # internal button horizontal padding
-        btn_pad_y = 9       # internal button vertical padding
-        btn_gap = 8         # gap between buttons
-        btn_h = min(64, (h - content_pad * 2 - btn_gap) // max(1, len(SKILL_DEFS)))
+        content_pad = 15
+        btn_pad_x = 14
+        btn_pad_y = 6
+        btn_gap = 8
+        skills = SKILL_DEFS
+
+        btn_h = 52  # fixed button height, enough for name + desc
+        row_h = btn_h + btn_gap
+        arrow_reserve = 16  # px reserved for scroll arrows
+        max_visible = max(1, (h - content_pad * 2 - arrow_reserve) // row_h)
+        max_scroll = max(0, len(skills) - max_visible)
+
+        # Auto-scroll to keep cursor visible
+        if combat.sub_selected_index < self._skill_scroll:
+            self._skill_scroll = combat.sub_selected_index
+        elif combat.sub_selected_index >= self._skill_scroll + max_visible:
+            self._skill_scroll = combat.sub_selected_index - max_visible + 1
+        self._skill_scroll = max(0, min(self._skill_scroll, max_scroll))
 
         inner_w = w - content_pad * 2
+        visible_end = min(len(skills), self._skill_scroll + max_visible)
 
-        for i, skill in enumerate(SKILL_DEFS):
-            btn_y = y + content_pad + i * (btn_h + btn_gap)
+        for vi, i in enumerate(range(self._skill_scroll, visible_end)):
+            skill = skills[i]
+            btn_y = y + content_pad + arrow_reserve // 2 + vi * row_h
             btn_rect = pygame.Rect(x + content_pad, btn_y, inner_w, btn_h)
             cost = skill.get("cost", 0)
             can_afford = player.sp >= cost
@@ -1136,40 +1154,51 @@ class BattleUI:
                 self.screen.blit(bg, (btn_rect.x, btn_y))
                 pygame.draw.rect(self.screen, NEON_CYAN_DIM, btn_rect, 1, border_radius=5)
 
-            # SP cost — right side, aligned with name row
+            # SP cost (right side, aligned with name row)
             sp_color = NEON_CYAN if can_afford else RED
             sp_text = f"{cost} SP" if cost > 0 else "Free"
             sp_surf = self.font_hud.render(sp_text, True, sp_color)
             sp_x = btn_rect.x + inner_w - sp_surf.get_width() - btn_pad_x
-            name_row_y = btn_y + btn_pad_y
 
-            # Skill name (max width shrinks around SP cost)
+            # Name
             name_color = DIM_WHITE if not can_afford else (NEON_CYAN if i == combat.sub_selected_index else YELLOW)
             prefix = "> " if i == combat.sub_selected_index else ""
             full_name = prefix + skill["name"]
             name_max_w = sp_x - btn_pad_x - (btn_rect.x + btn_pad_x) - 10
-            # Scale font down if name is too long
             name_font = self.font_stat
             if name_font.size(full_name)[0] > name_max_w:
                 name_font = pygame.font.SysFont("arial", 16, bold=True)
             name_surf = name_font.render(full_name, True, name_color)
+            name_row_y = btn_y + btn_pad_y
             self.screen.blit(name_surf, (btn_rect.x + btn_pad_x, name_row_y))
             self.screen.blit(sp_surf, (sp_x, name_row_y))
 
-            # Description — wrap to fit
+            # Description (1 line)
             desc_font = self.font_card_desc
-            desc_lines = self._wrap_text(skill["desc"], desc_font, inner_w - btn_pad_x * 2)
+            desc_surf = desc_font.render(skill["desc"], True, (140, 140, 165))
             desc_y = name_row_y + name_surf.get_height() + 3
-            for line in desc_lines[:2]:  # max 2 lines
-                l_surf = desc_font.render(line, True, DIM_WHITE)
-                self.screen.blit(l_surf, (btn_rect.x + btn_pad_x, desc_y))
-                desc_y += l_surf.get_height() + 1
+            self.screen.blit(desc_surf, (btn_rect.x + btn_pad_x, desc_y))
 
-        # Bottom bar — SP display and hint with 15px margins
+        # Scroll indicators
+        arrow_y = y + content_pad
+        if self._skill_scroll > 0:
+            up_arrow = self.font_small.render("▲", True, DIM_WHITE)
+            self.screen.blit(up_arrow, (x + (w - up_arrow.get_width()) // 2, arrow_y))
+        if self._skill_scroll < max_scroll:
+            down_arrow = self.font_small.render("▼", True, DIM_WHITE)
+            self.screen.blit(down_arrow, (x + (w - down_arrow.get_width()) // 2, y + h - content_pad - down_arrow.get_height()))
+
+        # Bottom bar — SP and hint
+        bar_y = y + h - content_pad - (arrow_reserve if self._skill_scroll < max_scroll else 0)
         sp_line = self.font_hud.render(f"SP: {player.sp}/{player.max_sp}", True, NEON_CYAN)
-        self.screen.blit(sp_line, (x + content_pad, y + h - content_pad))
+        self.screen.blit(sp_line, (x + content_pad, bar_y))
         hint = self.font_small.render("ESC/B: Back", True, (100, 100, 130))
-        self.screen.blit(hint, (x + w - hint.get_width() - content_pad, y + h - content_pad))
+        self.screen.blit(hint, (x + w - hint.get_width() - content_pad, bar_y))
+
+        # Empty state (safety)
+        if not skills:
+            empty = self.font_medium.render("No skills available.", True, DIM_WHITE)
+            self.screen.blit(empty, (x + (w - empty.get_width()) // 2, y + h // 2 - 10))
 
     @staticmethod
     def _wrap_text(text: str, font, max_w: int) -> list:

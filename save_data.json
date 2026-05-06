@@ -1,7 +1,7 @@
 {
-  "gold": 1915,
+  "gold": 1944,
   "level": 8,
-  "xp": 143,
+  "xp": 186,
   "xp_to_next": 250,
   "base_atk": 29,
   "base_def": 12,
@@ -139,6 +139,14 @@
       "atk": 0,
       "defense": 50,
       "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
     }
   ],
   "consumables": [
