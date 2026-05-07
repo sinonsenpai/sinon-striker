@@ -40,6 +40,13 @@ ACHIEVEMENT_DEFS = [
     {"id": "frozen_solid", "name": "Frozen Solid", "desc": "Inflict Frozen on 10 enemies.", "icon": "❄️", "counter": "frozen_inflicted", "threshold": 10},
     {"id": "bloodletter", "name": "Bloodletter", "desc": "Apply Bleed 20 times.", "icon": "🩸", "counter": "bleed_applied", "threshold": 20},
     {"id": "survivalist", "name": "Survivalist", "desc": "Heal 500 HP total via Regen.", "icon": "💚", "counter": "regen_healed", "threshold": 500},
+    # Phase 2 — Skill Tree / Class
+    {"id": "class_warrior", "name": "Class Master: Warrior", "desc": "Reach level 20 as Warrior.", "icon": "🛡️", "counter": "level_warrior", "threshold": 20},
+    {"id": "class_mage", "name": "Class Master: Mage", "desc": "Reach level 20 as Mage.", "icon": "🔮", "counter": "level_mage", "threshold": 20},
+    {"id": "class_rogue", "name": "Class Master: Rogue", "desc": "Reach level 20 as Rogue.", "icon": "🗡️", "counter": "level_rogue", "threshold": 20},
+    {"id": "scholar", "name": "Scholar", "desc": "Unlock all 8 skills for your class.", "icon": "📚"},
+    {"id": "jack_of_trades", "name": "Jack of All Trades", "desc": "Use 10 different skills in a single dungeon run.", "icon": "🎭"},
+    {"id": "untouchable", "name": "Untouchable", "desc": "Win 5 fights without taking damage.", "icon": "💨", "counter": "flawless_victories", "threshold": 5},
 ]
 
 

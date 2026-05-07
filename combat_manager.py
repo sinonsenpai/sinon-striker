@@ -17,6 +17,7 @@ from enum import Enum, auto
 import random
 from character import Character, Enemy
 from item import LootGenerator, ItemSlot, Consumable, Weapon, Armor, Rarity, pop_from_stack, merge_into_stack
+from skills import SkillRegistry
 
 
 class TurnState(Enum):
@@ -38,51 +39,6 @@ class MenuAction(Enum):
 
 
 MENU_OPTIONS = [MenuAction.ATTACK, MenuAction.SKILL, MenuAction.ITEM]
-
-
-SKILL_DEFS = [
-    {
-        "name": "Star-Shatter Strike",
-        "cost": 20,
-        "damage_mult": 2.5,
-        "desc": "2.5x ATK  |  Self: Vulnerable 1 turn",
-        "self_effect": "vulnerable",
-        "self_effect_duration": 1,
-    },
-    {
-        "name": "Astral Focus",
-        "cost": 10,
-        "damage_mult": 0,
-        "desc": "Next attack gains bonus = missing HP x0.5",
-        "buff": "focused",
-        "buff_duration": 3,
-    },
-    {
-        "name": "Blazing Strike",
-        "cost": 15,
-        "damage_mult": 1.8,
-        "desc": "1.8x ATK  |  Burn 3 turns (8 dmg)",
-        "status_effect": "burn",
-        "status_duration": 3,
-        "status_data": {"potency": 8},
-    },
-    {
-        "name": "Venom Strike",
-        "cost": 12,
-        "damage_mult": 1.2,
-        "desc": "1.2x ATK  |  Poison 3 turns (stacks)",
-        "status_effect": "poison",
-        "status_duration": 3,
-    },
-    {
-        "name": "Shockwave",
-        "cost": 18,
-        "damage_mult": 1.5,
-        "desc": "1.5x ATK  |  Stun (skip next turn)",
-        "status_effect": "stun",
-        "status_duration": 1,
-    },
-]
 
 
 class CombatManager:
@@ -121,6 +77,9 @@ class CombatManager:
         self._player_confused: bool = False
         self._enemy_turn_count: int = 0
         self._boss_phase2_triggered: bool = False
+
+        # Dynamic skill list from registry
+        self._available_skills = SkillRegistry.get_available_skills(player)
 
         # Kick off the first round
         self._advance_to_menu()
@@ -209,7 +168,7 @@ class CombatManager:
     def _sub_menu_length(self) -> int:
         """Return the number of options in the current sub-menu."""
         if self.state == TurnState.SKILL_SELECT:
-            return len(SKILL_DEFS)
+            return max(1, len(self._available_skills))
         elif self.state == TurnState.ITEM_SELECT:
             return max(1, len(self.player.consumables))
         return 0
@@ -240,7 +199,7 @@ class CombatManager:
             self._confirm_item()
 
     def _confirm_skill(self):
-        skill = SKILL_DEFS[self.sub_selected_index]
+        skill = self._available_skills[self.sub_selected_index]
         if skill["name"] in self.player.skill_cooldowns:
             self._sfx("error")
             self._add_log(f"{skill['name']} is on cooldown!")
@@ -404,63 +363,212 @@ class CombatManager:
             return
         self._player_confused = False
 
-        if skill.get("damage_mult", 0) > 0:
-            # Damage skill (Star-Shatter Strike)
-            if not self._check_hit(self.player, self.enemy):
-                self._last_hit_info = {"target": "enemy", "damage": 0, "is_crit": False, "missed": True}
-                self._add_log(f"{self.player.name}'s {skill['name']} missed!")
-                self._sfx("miss")
-                self._advance_to_enemy_turn()
-                return
+        # ── Non-damage skills (heal / buff) ──
+        if skill.get("damage_mult", 0) == 0:
+            # Heal skill (Mend)
+            if "heal_pct" in skill:
+                heal = int(self.player.max_hp * skill["heal_pct"])
+                heal = min(heal, self.player.max_hp - self.player.current_hp)
+                self.player.current_hp += heal
+                self._sfx("item_use")
+                self._add_log(f"{self.player.name} uses {skill['name']}! Heals {heal} HP!")
 
-            total_atk = self.player.atk
-            total_def = self.enemy.defn
+            # Buff skill
+            elif "buff" in skill:
+                self._sfx("buff")
+                self.player.add_status(skill["buff"], "buff", skill.get("buff_duration", 3))
+                self._add_log(f"{self.player.name} uses {skill['name']}! {skill.get('desc', '')}")
 
-            focused_bonus = self.player.consume_focused()
-            is_crit = random.random() < self.player.crit_chance
-            crit_mult = 1.8 if is_crit else 1.0
+            # Last Stand
+            elif skill.get("special") == "last_stand":
+                missing = self.player.max_hp - self.player.current_hp
+                damage = max(1, int(missing * 0.6))
+                actual = self.enemy.take_damage(damage)
+                self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": False}
+                self._add_log(f"{self.player.name} uses Last Stand! Deals {actual} damage! (missing HP: {missing})")
+                self._sfx("skill")
+                self._shake_source = "player"
+                if not self.enemy.is_alive:
+                    if self._ach_manager:
+                        self._ach_manager.inc("kills")
+                    self._award_xp()
+                    self.state = TurnState.VICTORY
+                    self._add_log(f"{self.enemy.name} defeated! Victory!")
+                    self._sfx("boss_defeated" if self.is_boss else "victory")
+                    self._award_gold()
+                    self._drop_loot()
+                    return
 
-            damage = max(1, int(total_atk * skill["damage_mult"] * crit_mult - total_def) + focused_bonus)
+            self._advance_to_enemy_turn()
+            return
+
+        # ── Damage skills ──
+        if not self._check_hit(self.player, self.enemy):
+            self._last_hit_info = {"target": "enemy", "damage": 0, "is_crit": False, "missed": True}
+            self._add_log(f"{self.player.name}'s {skill['name']} missed!")
+            self._sfx("miss")
+            self._advance_to_enemy_turn()
+            return
+
+        total_atk = self.player.atk
+        total_def = self.enemy.defn
+
+        # Handle ignore_def_pct (Assassin Backstab)
+        if skill.get("ignore_def_pct", 0) > 0:
+            total_def = int(total_def * (1.0 - skill["ignore_def_pct"]))
+
+        focused_bonus = self.player.consume_focused()
+
+        # Death Mark: auto-crit if target is marked
+        is_marked = self.player._death_marked
+        is_crit = is_marked or random.random() < self.player.crit_chance
+        if is_marked:
+            self.player._death_marked = False
+        crit_mult = 1.8 if is_crit else 1.0
+
+        # Damage multiplier
+        base_mult = skill["damage_mult"]
+
+        # Execute: 2.5x if target < 40% HP
+        if skill.get("special") == "execute":
+            if self.enemy.current_hp < self.enemy.max_hp * 0.4:
+                base_mult = 2.5
+
+        # Death Wish: scale with missing HP
+        if skill.get("special") == "death_wish":
+            hp_pct = self.player.current_hp / self.player.max_hp if self.player.max_hp > 0 else 1.0
+            base_mult = 1.8 + (1.0 - hp_pct) * 0.7  # 1.8 to 2.5
+
+        # Retaliation bonus
+        retaliation_bonus = 0
+        if skill.get("special") == "retaliation":
+            retaliation_bonus = int(self.player._damage_taken_last_turn * 0.5)
+
+        # Multi-hit (Thousand Cuts)
+        if skill.get("hits", 0) > 1:
+            total_damage = 0
+            total_crits = 0
+            for hit_i in range(skill["hits"]):
+                hit_crit = random.random() < self.player.crit_chance
+                hit_mult = crit_mult if hit_crit else 1.0
+                hit_dmg = max(1, int(total_atk * base_mult * hit_mult - total_def) + focused_bonus)
+                actual = self.enemy.take_damage(hit_dmg)
+                total_damage += actual
+                if hit_crit:
+                    total_crits += 1
+                # Apply poison on each hit
+                if self.enemy.is_alive and skill.get("status_effect"):
+                    dur = skill.get("status_duration", 3)
+                    self.enemy.add_status(skill["status_effect"], "debuff", dur, {})
+                focused_bonus = 0  # Only first hit gets focus bonus
+                if not self.enemy.is_alive:
+                    break
+            actual = total_damage
+            is_crit = total_crits > 0
+            self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": is_crit}
+            self._add_log(f"{self.player.name} uses {skill['name']}! {skill['hits']} hits for {actual} damage!")
+            self._sfx("skill")
+            if is_crit:
+                self._sfx("crit")
+                self._shake_source = "player"
+        else:
+            damage = max(1, int(total_atk * base_mult * crit_mult - total_def) + focused_bonus + retaliation_bonus)
             actual = self.enemy.take_damage(damage)
             self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": is_crit}
 
             crit_tag = "CRITICAL! " if is_crit else ""
             focus_tag = f"Astral Focus bonus: +{focused_bonus}! " if focused_bonus > 0 else ""
-            self._add_log(f"{self.player.name} uses {skill['name']}! {crit_tag}{focus_tag}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
-
+            ret_tag = f"Retaliation bonus: +{retaliation_bonus}! " if retaliation_bonus > 0 else ""
+            mark_tag = "DEATH MARK! " if is_marked else ""
+            self._add_log(f"{self.player.name} uses {skill['name']}! {mark_tag}{crit_tag}{ret_tag}{focus_tag}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+            self._sfx("skill")
             if is_crit:
                 self._sfx("crit")
                 self._shake_source = "player"
 
-            # Self-debuff
-            if "self_effect" in skill:
-                self.player.add_status(skill["self_effect"], "debuff", skill.get("self_effect_duration", 1), {})
-                self._add_log(f"{self.player.name} is now Vulnerable!")
+        # ── Post-hit effects ──
 
-            # Status effect application on enemy (damage skills only)
-            if skill.get("status_effect") and self.enemy.is_alive:
-                effect = skill["status_effect"]
-                dur = skill.get("status_duration", 3)
-                data = skill.get("status_data", None)
-                self.enemy.add_status(effect, "debuff", dur, data or {})
-                self._add_log(f"{self.enemy.name} is now afflicted with {effect}!")
+        # Self-debuff
+        if "self_effect" in skill:
+            self.player.add_status(skill["self_effect"], "debuff", skill.get("self_effect_duration", 1), {})
+            self._add_log(f"{self.player.name} is now {skill['self_effect'].capitalize()}!")
 
-            if not self.enemy.is_alive:
-                if self._ach_manager:
-                    self._ach_manager.inc("kills")
-                self._award_xp()
-                self.state = TurnState.VICTORY
-                self._add_log(f"{self.enemy.name} defeated! Victory!")
-                self._sfx("boss_defeated" if self.is_boss else "victory")
-                self._award_gold()
-                self._drop_loot()
-                return
+        # Self-debuff from data (Blood Rage: bleed)
+        if skill.get("self_effect_data"):
+            for eff_name, eff_info in skill["self_effect_data"].items():
+                self.player.add_status(eff_name, "debuff", eff_info.get("duration", 2), {})
+                self._add_log(f"{self.player.name} is now bleeding!")
 
-        elif "buff" in skill:
-            # Buff skill (Astral Focus)
-            self._sfx("buff")
-            self.player.add_status(skill["buff"], "buff", skill.get("buff_duration", 3))
-            self._add_log(f"{self.player.name} uses {skill['name']}! Focused — next attack gains bonus damage.")
+        # HP cost (Annihilate)
+        if skill.get("hp_cost_pct", 0) > 0:
+            hp_cost = max(1, int(self.player.current_hp * skill["hp_cost_pct"]))
+            self.player.current_hp = max(1, self.player.current_hp - hp_cost)
+            self._add_log(f"{self.player.name} sacrifices {hp_cost} HP!")
+
+        # Status effect on enemy
+        if skill.get("status_effect") and self.enemy.is_alive:
+            effect = skill["status_effect"]
+            dur = skill.get("status_duration", 3)
+            data = skill.get("status_data", None)
+            self.enemy.add_status(effect, "debuff", dur, data or {})
+            if self._ach_manager:
+                if effect == "frozen":
+                    self._ach_manager.inc("frozen_inflicted")
+                elif effect == "bleed":
+                    self._ach_manager.inc("bleed_applied")
+            self._add_log(f"{self.enemy.name} is now afflicted with {effect}!")
+
+        # Extra status (Envenom: bleed, Meteor: stun)
+        if skill.get("extra_status") and self.enemy.is_alive:
+            extra = skill["extra_status"]
+            if random.random() < skill.get("extra_chance", 1.0):
+                dur = skill.get("extra_duration", 3)
+                self.enemy.add_status(extra, "debuff", dur, {})
+                if self._ach_manager and extra == "bleed":
+                    self._ach_manager.inc("bleed_applied")
+                self._add_log(f"{self.enemy.name} is also afflicted with {extra}!")
+
+        # Restore SP (Mana Siphon)
+        if skill.get("restore_sp", 0) > 0:
+            restored = min(skill["restore_sp"], self.player.max_sp - self.player.sp)
+            self.player.sp += restored
+            self._add_log(f"{self.player.name} restores {restored} SP!")
+
+        # Permanent stat gain (Aegis Strike)
+        if skill.get("perm_stat") and self.enemy.is_alive:
+            for stat, value in skill["perm_stat"].items():
+                if stat == "def":
+                    self.player._base_def += value
+            self._add_log(f"{self.player.name} gains +{skill['perm_stat'].get('def', 0)} permanent DEF!")
+
+        # Death Mark — mark target for next attack
+        if skill.get("special") == "death_mark" and self.enemy.is_alive:
+            self.player._death_marked = True
+            self._add_log(f"{self.enemy.name} is marked for death! Next attack is guaranteed crit.")
+
+        # Conflagration — target takes +50% burn damage
+        if skill.get("special") == "conflagration" and self.enemy.is_alive:
+            self.enemy._conflagration_active = True
+            self._add_log(f"{self.enemy.name} will take +50% damage from Burn!")
+
+        if not self.player.is_alive:
+            self.state = TurnState.DEFEAT
+            self._add_log(f"{self.player.name} has fallen... Defeat.")
+            return
+
+        # Track damage taken for Retaliation
+        self.player._damage_taken_last_turn = 0
+
+        if not self.enemy.is_alive:
+            if self._ach_manager:
+                self._ach_manager.inc("kills")
+            self._award_xp()
+            self.state = TurnState.VICTORY
+            self._add_log(f"{self.enemy.name} defeated! Victory!")
+            self._sfx("boss_defeated" if self.is_boss else "victory")
+            self._award_gold()
+            self._drop_loot()
+            return
 
         self._advance_to_enemy_turn()
 
@@ -520,6 +628,8 @@ class CombatManager:
     def _advance_to_menu(self):
         """Transition to MENU_SELECT — process player status effects first."""
         self.player.tick_cooldowns()
+        # Refresh available skills (new skills may unlock from level up)
+        self._available_skills = SkillRegistry.get_available_skills(self.player)
         result = self.player.tick_status_effects()
         result["target"] = "player"
         self._last_status_tick = result
@@ -784,6 +894,9 @@ class CombatManager:
         self._sfx("player_hit")
         self._shake_source = "enemy"
         self._add_log(f"{ename} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+
+        # Track damage taken for Retaliation skill
+        self.player._damage_taken_last_turn += actual
 
         # Status application for special moves
         if self.player.is_alive:

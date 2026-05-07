@@ -9,7 +9,7 @@ import math
 import random
 import pygame
 from character import Character, Enemy
-from combat_manager import CombatManager, TurnState, MenuAction, MENU_OPTIONS, SKILL_DEFS
+from combat_manager import CombatManager, TurnState, MenuAction, MENU_OPTIONS
 from item import Rarity, ItemSlot, Consumable
 from sprites import get_sinon_sprite, get_enemy_sprite, get_skill_icon, SpriteAnim
 
@@ -1166,7 +1166,7 @@ class BattleUI:
         btn_pad_x = 14
         btn_pad_y = 6
         btn_gap = 8
-        skills = SKILL_DEFS
+        skills = getattr(combat, '_available_skills', [])
 
         btn_h = 52  # fixed button height, enough for name + desc
         row_h = btn_h + btn_gap

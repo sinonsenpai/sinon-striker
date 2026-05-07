@@ -6,6 +6,7 @@ import json
 import os
 
 from item import Weapon, Armor, Consumable, Rarity, merge_into_stack
+from skills import PlayerClass, SkillTree
 
 SAVE_FILE = "save_data.json"
 SETTINGS_FILE = "settings.json"
@@ -24,6 +25,8 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
         "base_def": player._base_def,
         "max_hp": player.max_hp,
         "current_floor": current_floor,
+        "player_class": player.player_class.value if player.player_class else None,
+        "chosen_tree": player.chosen_tree.value if player.chosen_tree else None,
         "equipment": {
             "weapon": serialize_item(player.equipment.get("weapon")),
             "armor": serialize_item(player.equipment.get("armor")),
@@ -50,6 +53,25 @@ def load_game(player):
     player._base_def = data.get("base_def", 5)
     player.max_hp = data.get("max_hp", 100)
     player.current_hp = player.max_hp
+
+    # Class / Tree (backward compatible: default to Warrior + Berserker)
+    pc_name = data.get("player_class")
+    if pc_name:
+        try:
+            player.player_class = PlayerClass(pc_name)
+        except ValueError:
+            player.player_class = PlayerClass.WARRIOR
+    else:
+        player.player_class = PlayerClass.WARRIOR
+
+    tree_name = data.get("chosen_tree")
+    if tree_name:
+        try:
+            player.chosen_tree = SkillTree(tree_name)
+        except ValueError:
+            player.chosen_tree = SkillTree.BERSERKER
+    else:
+        player.chosen_tree = SkillTree.BERSERKER
 
     # Equipment
     for slot in ("weapon", "armor"):

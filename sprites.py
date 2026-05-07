@@ -351,11 +351,41 @@ def _icon_bolt(surf, w, h):
 
 
 SKILL_ICONS = {
-    "Star-Shatter Strike": _icon_star,
-    "Astral Focus": _icon_target,
-    "Blazing Strike": _icon_flame,
-    "Venom Strike": _icon_drip,
-    "Shockwave": _icon_bolt,
+    # Survival
+    "Mend": _icon_target,
+    "Iron Will": _icon_star,
+    "Adrenaline": _icon_bolt,
+    "Last Stand": _icon_star,
+    # Vanguard
+    "Shield Bash": _icon_star,
+    "Fortify": _icon_target,
+    "Retaliation": _icon_bolt,
+    "Aegis Strike": _icon_star,
+    # Berserker
+    "Blood Rage": _icon_flame,
+    "Reckless Swing": _icon_flame,
+    "Death Wish": _icon_flame,
+    "Annihilate": _icon_star,
+    # Pyromancy
+    "Fireball": _icon_flame,
+    "Inferno": _icon_flame,
+    "Conflagration": _icon_flame,
+    "Meteor": _icon_flame,
+    # Arcanist
+    "Frost Bolt": _icon_star,
+    "Hex": _icon_drip,
+    "Mana Siphon": _icon_bolt,
+    "Time Warp": _icon_bolt,
+    # Assassin
+    "Backstab": _icon_star,
+    "Expose Weakness": _icon_drip,
+    "Execute": _icon_flame,
+    "Death Mark": _icon_target,
+    # Trickster
+    "Poison Dart": _icon_drip,
+    "Smoke Bomb": _icon_target,
+    "Envenom": _icon_drip,
+    "Thousand Cuts": _icon_drip,
 }
 
 

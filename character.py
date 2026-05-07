@@ -9,7 +9,8 @@ from item import ItemSlot, GEAR_SETS
 class Character:
     """Base class representing any combatant in the battle."""
 
-    def __init__(self, name: str, max_hp: int, atk: int, defn: int = 0):
+    def __init__(self, name: str, max_hp: int, atk: int, defn: int = 0,
+                 player_class=None, chosen_tree=None):
         self.name = name
         self.max_hp = max_hp
         self.current_hp = max_hp
@@ -36,6 +37,19 @@ class Character:
 
         # Evasion base value (enemies override via _eva; players use equipment bonus)
         self._eva: float = 0.05
+        self._base_crit: float = 0.05
+
+        # Class system
+        self.player_class = player_class
+        self.chosen_tree = chosen_tree
+
+        # Run blessings (shrine, Phase 3)
+        self.run_blessings: dict = {}
+
+        # Per-turn tracking
+        self._damage_taken_last_turn: int = 0
+        self._death_marked: bool = False
+        self._conflagration_active: bool = False
 
     # ── Properties ─────────────────────────────────────────────────
 
@@ -49,21 +63,29 @@ class Character:
 
     @property
     def atk(self) -> int:
-        """Total ATK = base + weapon bonus + set bonuses."""
+        """Total ATK = base + weapon bonus + set bonuses + buff multipliers."""
         weapon = self.equipment.get("weapon")
         bonus = weapon.stat_modifier.get("atk", 0) if weapon else 0
         for set_data in self.get_active_sets().values():
             bonus += set_data["bonus"].get("atk", 0)
-        return self._base_atk + bonus
+        total = self._base_atk + bonus
+        if self.has_status("adrenaline"):
+            total = int(total * 1.25)
+        return total
 
     @property
     def defn(self) -> int:
-        """Total DEF = base + armor bonus + set bonuses."""
+        """Total DEF = base + armor bonus + set bonuses + buff multipliers."""
         armor = self.equipment.get("armor")
         bonus = armor.stat_modifier.get("def", 0) if armor else 0
         for set_data in self.get_active_sets().values():
             bonus += set_data["bonus"].get("def", 0)
-        return self._base_def + bonus
+        total = self._base_def + bonus
+        if self.has_status("iron_will"):
+            total = int(total * 1.30)
+        elif self.has_status("fortify"):
+            total = int(total * 1.50)
+        return total
 
     def get_active_sets(self) -> dict:
         """Return dict of set_name -> set_data for completed sets."""
@@ -85,7 +107,7 @@ class Character:
     @property
     def crit_chance(self) -> float:
         """Fragile Focus: crit chance increases as HP decreases."""
-        base = 0.05
+        base = getattr(self, '_base_crit', 0.05)
         hp_pct = self.current_hp / self.max_hp if self.max_hp > 0 else 1.0
         bonus = (1.0 - hp_pct) * 0.30
         return base + bonus
@@ -100,13 +122,30 @@ class Character:
 
     @property
     def evasion(self) -> float:
-        """Base evasion (5%) + equipment bonuses."""
+        """Base evasion (5%) + equipment bonuses + buff multipliers."""
         base = self._eva
         armor = self.equipment.get("armor")
         eva_bonus = armor.stat_modifier.get("eva", 0) if armor else 0
-        return min(0.30, base + eva_bonus)
+        total = min(0.30, base + eva_bonus)
+        if self.has_status("smoke_screen"):
+            total = min(0.50, total + 0.25)
+        return total
 
     # ── Equipment ──────────────────────────────────────────────────
+
+    def apply_class_stats(self, player_class):
+        """Set base stats based on chosen class."""
+        from skills import SkillRegistry
+        stats = SkillRegistry.get_base_stats(player_class)
+        self.max_hp = stats["max_hp"]
+        self.current_hp = self.max_hp
+        self._base_atk = stats["atk"]
+        self._base_def = stats["defn"]
+        self.max_sp = stats["max_sp"]
+        self.sp = self.max_sp
+        self._base_crit = stats["crit"]
+        self._eva = stats["eva"]
+        self.player_class = player_class
 
     def equip(self, item) -> None:
         slot_key = "weapon" if item.slot == ItemSlot.WEAPON else "armor"

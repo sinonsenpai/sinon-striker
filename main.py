@@ -19,11 +19,14 @@ from dungeon_ui import DungeonUI
 from enum import Enum, auto
 from save_manager import save_game, load_game
 from achievements import AchievementManager, AchievementToast
+from skills import SkillRegistry, PlayerClass, SkillTree
 
 
 class GameState(Enum):
     TITLE = auto()
     OPTIONS = auto()
+    CLASS_SELECT = auto()   # pick Warrior/Mage/Rogue
+    TREE_SELECT = auto()    # pick skill tree for chosen class
     HUB = auto()
     DUNGEON = auto()        # floor select
     DUNGEON_ROOM = auto()   # current room display
@@ -122,6 +125,11 @@ def main():
     god_mode = False
     options_screen = None
 
+    # Class / Tree selection state
+    class_idx = 0
+    tree_idx = 0
+    selected_class = None
+
     # Loot display temp state
     loot_item = None
     dungeon_sub = ""  # "loot", "rest", "complete", "death", "shop"
@@ -175,6 +183,35 @@ def main():
                             state = GameState.TITLE
                     elif event.key == pygame.K_ESCAPE:
                         state = GameState.TITLE
+
+                # ── CLASS SELECT ──────────────────────────────────
+                elif state == GameState.CLASS_SELECT:
+                    classes = list(PlayerClass)
+                    if event.key in (pygame.K_w, pygame.K_UP):
+                        class_idx = (class_idx - 1) % len(classes)
+                    elif event.key in (pygame.K_s, pygame.K_DOWN):
+                        class_idx = (class_idx + 1) % len(classes)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        selected_class = classes[class_idx]
+                        player = Character("Hero", max_hp=100, atk=15, defn=5)
+                        player.apply_class_stats(selected_class)
+                        tree_idx = 0
+                        state = GameState.TREE_SELECT
+
+                # ── TREE SELECT ───────────────────────────────────
+                elif state == GameState.TREE_SELECT:
+                    trees = SkillRegistry.get_trees_for_class(selected_class)
+                    if event.key in (pygame.K_w, pygame.K_UP):
+                        tree_idx = (tree_idx - 1) % len(trees)
+                    elif event.key in (pygame.K_s, pygame.K_DOWN):
+                        tree_idx = (tree_idx + 1) % len(trees)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        player.chosen_tree = trees[tree_idx]
+                        hub_screen = HubScreen(screen, player, ach_manager, snd)
+                        hub_screen.start_fade_in()
+                        snd.play_hub_music()
+                        save_game(player, snd, ach_manager, current_floor)
+                        state = GameState.HUB
 
                 # ── HUB ────────────────────────────────────────────
                 elif state == GameState.HUB and hub_screen is not None:
@@ -360,6 +397,8 @@ def main():
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
                         current_floor = dungeon_run.floor + 1
+                        # SP regen per floor
+                        player.sp = min(player.max_sp, player.sp + 10)
                         snd.play("floor_up")
                         dungeon_sub = ""
                         hub_screen.start_fade_in()
@@ -403,6 +442,9 @@ def main():
                             else:
                                 # No level-up, exit battle
                                 snd.stop_battle_music()
+                                # Flawless victory check
+                                if player.current_hp == player.max_hp:
+                                    ach_manager.inc("flawless_victories")
                                 if dungeon_run is not None:
                                     dungeon_run.enemies_defeated += 1
                                     dungeon_run.total_gold += combat._gold_dropped
@@ -516,6 +558,11 @@ def main():
                     if not loaded:
                         current_floor = 1
                     ach_manager.load()
+                    hub_screen = HubScreen(screen, player, ach_manager, snd)
+                    hub_screen.start_fade_in()
+                    snd.play_hub_music()
+                    save_game(player, snd, ach_manager, current_floor)
+                    state = GameState.HUB
                 else:
                     # New Game — delete old save and start fresh
                     if os.path.exists("save_data.json"):
@@ -524,11 +571,8 @@ def main():
                         os.remove("achievements.json")
                     ach_manager.reset()
                     current_floor = 1
-                hub_screen = HubScreen(screen, player, ach_manager, snd)
-                hub_screen.start_fade_in()
-                snd.play_hub_music()
-                save_game(player, snd, ach_manager, current_floor)  # Ensure save exists on hub entry
-                state = GameState.HUB
+                    class_idx = 0
+                    state = GameState.CLASS_SELECT
 
         elif state == GameState.OPTIONS and options_screen is not None:
             options_screen.update(dt_ms)
@@ -554,6 +598,7 @@ def main():
                     dungeon_sub = ""
                     if dungeon_run.done:
                         current_floor = dungeon_run.floor + 1
+                        player.sp = min(player.max_sp, player.sp + 10)
                         snd.play("floor_up")
                         ach_manager.inc("dungeons_completed")
                         hub_screen.start_fade_in()
@@ -569,6 +614,18 @@ def main():
         # ── Achievement checks ────────────────────────────────────
         if player is not None:
             ach_manager.set("level_reached", player.level)
+            if player.player_class:
+                pc = player.player_class
+                if pc == PlayerClass.WARRIOR:
+                    ach_manager.set("level_warrior", player.level)
+                elif pc == PlayerClass.MAGE:
+                    ach_manager.set("level_mage", player.level)
+                elif pc == PlayerClass.ROGUE:
+                    ach_manager.set("level_rogue", player.level)
+            # Scholar: check if player has unlocked all 8 skills
+            available = SkillRegistry.get_available_skills(player)
+            if len(available) >= 8:
+                ach_manager.unlock("scholar")
             if player.get_active_sets():
                 ach_manager.unlock("set_bonus")
 
@@ -578,6 +635,12 @@ def main():
 
         elif state == GameState.OPTIONS and options_screen is not None:
             options_screen.draw(dt_ms)
+
+        elif state == GameState.CLASS_SELECT:
+            _draw_class_select(screen, class_idx, dt_ms)
+
+        elif state == GameState.TREE_SELECT:
+            _draw_tree_select(screen, selected_class, tree_idx, dt_ms)
 
         elif state == GameState.HUB and hub_screen is not None:
             hub_screen.draw(dt_ms)
@@ -621,6 +684,127 @@ def main():
 
     pygame.quit()
     sys.exit()
+
+
+def _draw_class_select(screen, class_idx, dt_ms):
+    """Draw the class selection screen."""
+    import math
+    w, h = screen.get_size()
+    screen.fill((18, 14, 30))
+
+    classes = list(PlayerClass)
+    stats = {
+        PlayerClass.WARRIOR: "HP 120  ATK 18  DEF 8  SP 50  Crit 5%",
+        PlayerClass.MAGE: "HP 90  ATK 12  DEF 4  SP 75  Crit 5%",
+        PlayerClass.ROGUE: "HP 100  ATK 15  DEF 5  SP 55  Crit 10%",
+    }
+    descs = {
+        PlayerClass.WARRIOR: "Tanky brawler. Vanguard shield or Berserker rage.",
+        PlayerClass.MAGE: "Spellcaster. Pyromancy fire or Arcanist control.",
+        PlayerClass.ROGUE: "Nimble killer. Assassin burst or Trickster poison.",
+    }
+
+    font_title = pygame.font.SysFont("arial", 36, bold=True)
+    font_class = pygame.font.SysFont("arial", 28, bold=True)
+    font_stat = pygame.font.SysFont("arial", 16, bold=False)
+    font_desc = pygame.font.SysFont("arial", 14, bold=False)
+    font_hint = pygame.font.SysFont("arial", 15, bold=False)
+
+    title = font_title.render("CHOOSE YOUR CLASS", True, (0, 240, 255))
+    screen.blit(title, ((w - title.get_width()) // 2, h * 0.12))
+
+    panel_w, panel_h = 400, 280
+    px = (w - panel_w) // 2
+    py = int(h * 0.22)
+
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    panel.fill((20, 15, 40, 225))
+    screen.blit(panel, (px, py))
+    pygame.draw.rect(screen, (0, 240, 255), (px, py, panel_w, panel_h), 2, border_radius=8)
+
+    for i, pc in enumerate(classes):
+        btn_y = py + 20 + i * 85
+        btn_rect = pygame.Rect(px + 20, btn_y, panel_w - 40, 70)
+
+        selected = i == class_idx
+        if selected:
+            pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.005)
+            sel = pygame.Surface((btn_rect.w, btn_rect.h), pygame.SRCALPHA)
+            sel.fill((*((0, 240, 255)), int(35 * pulse)))
+            screen.blit(sel, (btn_rect.x, btn_rect.y))
+            pygame.draw.rect(screen, (0, 240, 255), btn_rect, 2, border_radius=5)
+        else:
+            pygame.draw.rect(screen, (60, 60, 75), btn_rect, 1, border_radius=5)
+
+        prefix = "> " if selected else ""
+        name = font_class.render(f"{prefix}{pc.value}", True, (0, 240, 255) if selected else (160, 160, 180))
+        screen.blit(name, (btn_rect.x + 12, btn_rect.y + 8))
+
+        stat_text = font_stat.render(stats[pc], True, (200, 200, 220))
+        screen.blit(stat_text, (btn_rect.x + 12, btn_rect.y + 36))
+
+        desc_text = font_desc.render(descs[pc], True, (140, 140, 165))
+        screen.blit(desc_text, (btn_rect.x + 12, btn_rect.y + 54))
+
+    hint = font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER] Confirm", True, (100, 100, 130))
+    screen.blit(hint, ((w - hint.get_width()) // 2, py + panel_h + 14))
+
+
+def _draw_tree_select(screen, selected_class, tree_idx, dt_ms):
+    """Draw the skill tree selection screen."""
+    import math
+    w, h = screen.get_size()
+    screen.fill((18, 14, 30))
+
+    trees = SkillRegistry.get_trees_for_class(selected_class)
+
+    font_title = pygame.font.SysFont("arial", 36, bold=True)
+    font_tree = pygame.font.SysFont("arial", 28, bold=True)
+    font_desc = pygame.font.SysFont("arial", 14, bold=False)
+    font_hint = pygame.font.SysFont("arial", 15, bold=False)
+
+    title = font_title.render(f"{selected_class.value} — CHOOSE YOUR TREE", True, (0, 240, 255))
+    screen.blit(title, ((w - title.get_width()) // 2, h * 0.12))
+
+    panel_w, panel_h = 420, 200
+    px = (w - panel_w) // 2
+    py = int(h * 0.28)
+
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    panel.fill((20, 15, 40, 225))
+    screen.blit(panel, (px, py))
+    pygame.draw.rect(screen, (0, 240, 255), (px, py, panel_w, panel_h), 2, border_radius=8)
+
+    for i, tree in enumerate(trees):
+        btn_y = py + 20 + i * 75
+        btn_rect = pygame.Rect(px + 20, btn_y, panel_w - 40, 60)
+
+        selected = i == tree_idx
+        color = (0, 240, 255) if selected else (160, 160, 180)
+        if selected:
+            pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.005)
+            sel = pygame.Surface((btn_rect.w, btn_rect.h), pygame.SRCALPHA)
+            sel.fill((*((0, 240, 255)), int(35 * pulse)))
+            screen.blit(sel, (btn_rect.x, btn_rect.y))
+            pygame.draw.rect(screen, (0, 240, 255), btn_rect, 2, border_radius=5)
+        else:
+            pygame.draw.rect(screen, (60, 60, 75), btn_rect, 1, border_radius=5)
+
+        prefix = "> " if selected else ""
+        name = font_tree.render(f"{prefix}{tree.value}", True, color)
+        screen.blit(name, (btn_rect.x + 12, btn_rect.y + 6))
+
+        desc = "Tank / Support" if tree.value == "Vanguard" else \
+               "Damage / Risk" if tree.value == "Berserker" else \
+               "Fire / DOT" if tree.value == "Pyromancy" else \
+               "Control / Debuff" if tree.value == "Arcanist" else \
+               "Single-target Burst" if tree.value == "Assassin" else \
+               "Poison / Evasion"
+        desc_text = font_desc.render(desc, True, (140, 140, 165))
+        screen.blit(desc_text, (btn_rect.x + 12, btn_rect.y + 38))
+
+    hint = font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER] Confirm", True, (100, 100, 130))
+    screen.blit(hint, ((w - hint.get_width()) // 2, py + panel_h + 14))
 
 
 def _buy_dungeon_shop(player, idx):
