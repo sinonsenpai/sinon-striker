@@ -35,6 +35,11 @@ ACHIEVEMENT_DEFS = [
     {"id": "deaths_door", "name": "Death's Door", "desc": "Fall in battle.", "icon": "💔", "counter": "deaths", "threshold": 1},
     {"id": "apothecary", "name": "Apothecary", "desc": "Buy an item from the Apothecary.", "icon": "🧪"},
     {"id": "merchant", "name": "Merchant", "desc": "Sell an item at the Smithy.", "icon": "🔨"},
+    # Phase 1 new
+    {"id": "confuse_self_hit", "name": "Confusion Reigns", "desc": "Cause an enemy to hit itself via Confused.", "icon": "🌀"},
+    {"id": "frozen_solid", "name": "Frozen Solid", "desc": "Inflict Frozen on 10 enemies.", "icon": "❄️", "counter": "frozen_inflicted", "threshold": 10},
+    {"id": "bloodletter", "name": "Bloodletter", "desc": "Apply Bleed 20 times.", "icon": "🩸", "counter": "bleed_applied", "threshold": 20},
+    {"id": "survivalist", "name": "Survivalist", "desc": "Heal 500 HP total via Regen.", "icon": "💚", "counter": "regen_healed", "threshold": 500},
 ]
 
 

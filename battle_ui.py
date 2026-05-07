@@ -49,18 +49,28 @@ RARITY_ACCENT = {
 SLOT_LABEL = {ItemSlot.WEAPON: "Weapon", ItemSlot.ARMOR: "Armor"}
 
 STATUS_SHORT = {
-    "burn":        "B",
-    "poison":      "P",
-    "stun":        "S",
-    "vulnerable":  "V",
-    "focused":     "F",
+    "burn":            "B",
+    "poison":          "P",
+    "stun":            "S",
+    "vulnerable":      "V",
+    "focused":         "F",
+    "frozen":          "Z",
+    "frozen_shatter":  "Z",
+    "bleed":           "D",
+    "confused":        "?",
+    "regen":           "+",
 }
 STATUS_COLOR = {
-    "burn":        (255, 120, 20),
-    "poison":      (100, 200, 80),
-    "stun":        (255, 255, 100),
-    "vulnerable":  (220, 50, 60),
-    "focused":     (0, 240, 255),
+    "burn":            (255, 120, 20),
+    "poison":          (100, 200, 80),
+    "stun":            (255, 255, 100),
+    "vulnerable":      (220, 50, 60),
+    "focused":         (0, 240, 255),
+    "frozen":          (100, 180, 255),
+    "frozen_shatter":  (100, 180, 255),
+    "bleed":           (200, 40, 40),
+    "confused":        (220, 130, 220),
+    "regen":           (80, 220, 80),
 }
 
 SHAKE_MAX_INTENSITY = 8
@@ -314,7 +324,23 @@ class BattleUI:
         if hit_info:
             missed = hit_info.get("missed", False)
             status_stun = hit_info.get("status_stun", False)
+            confused_self = hit_info.get("confused_self", False)
             sprite_y = self._get_sprite_y()
+            if confused_self:
+                target = hit_info.get("target")
+                if target == "player":
+                    x = int(self.w * 0.25) + dx
+                else:
+                    x = int(self.w * 0.72) + dx
+                y = sprite_y - 80 + dy
+                self._floating_texts.append(FloatingText("CONFUSED!", x, y - 30, (220, 130, 220), 22))
+                target = hit_info.get("target")
+                damage = hit_info.get("damage", 0)
+                fx = int(self.w * (0.72 if target == "enemy" else 0.25)) + dx
+                fy = sprite_y - 85 + dy
+                self._floating_texts.append(FloatingText(str(damage), fx, fy, (220, 130, 220), 18))
+                combat._last_hit_info = None
+                return
             if status_stun:
                 x = int(self.w * 0.25) + dx
                 y = sprite_y - 80 + dy
@@ -373,7 +399,7 @@ class BattleUI:
             combat._last_hit_info = None
 
     def _check_status_ticks(self, combat: CombatManager, dx=0, dy=0):
-        """Spawn floating damage numbers for DOT status ticks."""
+        """Spawn floating damage/healing numbers for DOT status ticks."""
         status_tick = getattr(combat, '_last_status_tick', None)
         if status_tick is None:
             return
@@ -383,14 +409,23 @@ class BattleUI:
             if msg[0] == "burn":
                 dmg = msg[1]
                 x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
+                y = sprite_y - 85 + dy
+                self._floating_texts.append(FloatingText(str(dmg), x, y, (255, 120, 20), 18))
             elif msg[0] == "poison":
                 dmg = msg[1]
                 x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
-            else:
-                continue
-            y = sprite_y - 85 + dy
-            color = (255, 120, 20) if msg[0] == "burn" else (100, 200, 80)
-            self._floating_texts.append(FloatingText(str(dmg), x, y, color, 18))
+                y = sprite_y - 85 + dy
+                self._floating_texts.append(FloatingText(str(dmg), x, y, (100, 200, 80), 18))
+            elif msg[0] == "bleed":
+                dmg = msg[1]
+                x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
+                y = sprite_y - 85 + dy
+                self._floating_texts.append(FloatingText(str(dmg), x, y, (200, 40, 40), 18))
+            elif msg[0] == "regen":
+                heal = msg[1]
+                x = int(self.w * (0.72 if is_enemy_tick else 0.25)) + dx
+                y = sprite_y - 85 + dy
+                self._floating_texts.append(FloatingText(f"+{heal}", x, y, (80, 220, 80), 18))
         combat._last_status_tick = None
 
     def _pulse_brightness(self) -> float:
@@ -765,7 +800,11 @@ class BattleUI:
         # ── Glass panel (with status-based border color) ──
         border_color = RED if is_boss else NEON_CYAN
         if not is_boss:
-            if char.has_status("focused"):
+            if char.has_status("frozen") or char.has_status("frozen_shatter"):
+                border_color = (100, 180, 255)
+            elif char.has_status("confused"):
+                border_color = (220, 130, 220)
+            elif char.has_status("focused"):
                 border_color = GOLD
             elif char.has_status("vulnerable"):
                 border_color = RED
@@ -782,7 +821,15 @@ class BattleUI:
             self.screen.blit(boss_label, (x + hud_w - boss_label.get_width() - 10, y + 6))
 
         # Status tint overlay
-        if char.has_status("focused"):
+        if char.has_status("frozen") or char.has_status("frozen_shatter"):
+            tint = pygame.Surface((hud_w, panel_h), pygame.SRCALPHA)
+            tint.fill((100, 180, 255, 25))
+            self.screen.blit(tint, (x, y))
+        elif char.has_status("confused"):
+            tint = pygame.Surface((hud_w, panel_h), pygame.SRCALPHA)
+            tint.fill((220, 130, 220, 25))
+            self.screen.blit(tint, (x, y))
+        elif char.has_status("focused"):
             glow = pygame.Surface((hud_w, panel_h), pygame.SRCALPHA)
             glow.fill((*GOLD, 25))
             self.screen.blit(glow, (x, y))
@@ -933,6 +980,8 @@ class BattleUI:
             return
         icon_x = x
         for effect in char.status_effects:
+            if effect["name"] == "frozen_shatter":
+                continue  # internal mechanic, not displayed
             name = effect["name"]
             letter = STATUS_SHORT.get(name, "?")
             color = STATUS_COLOR.get(name, (180, 180, 200))

@@ -1,29 +1,15 @@
 {
-  "gold": 2820,
+  "gold": 3235,
   "level": 11,
-  "xp": 36,
+  "xp": 301,
   "xp_to_next": 325,
   "base_atk": 35,
   "base_def": 15,
   "max_hp": 200,
-  "current_floor": 6,
+  "current_floor": 7,
   "equipment": {
-    "weapon": {
-      "type": "weapon",
-      "name": "Fine Blade",
-      "rarity": "RARE",
-      "atk": 50,
-      "defense": 0,
-      "set_name": "Dragon"
-    },
-    "armor": {
-      "type": "armor",
-      "name": "Fine Scale",
-      "rarity": "RARE",
-      "atk": 0,
-      "defense": 50,
-      "set_name": "Dragon"
-    }
+    "weapon": null,
+    "armor": null
   },
   "inventory": [
     {
@@ -239,6 +225,62 @@
       "name": "Fine Dagger",
       "rarity": "RARE",
       "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Dagger",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Lamellar",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 50,
+      "defense": 0,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Fine Scale",
+      "rarity": "RARE",
+      "atk": 0,
+      "defense": 50,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Claymore",
+      "rarity": "COMMON",
+      "atk": 3,
       "defense": 0,
       "set_name": null
     }

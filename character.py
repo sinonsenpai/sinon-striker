@@ -129,6 +129,7 @@ class Character:
     def add_status(self, name: str, type_: str, duration: int, data: dict = None):
         """Add or refresh a status effect. Replaces existing effect of same name.
         For poison: if same name exists, increment stack up to 3, refresh duration.
+        For bleed: stack intensity (1-3), does NOT refresh duration.
         """
         existing = None
         for e in self.status_effects:
@@ -140,6 +141,12 @@ class Character:
             stack = existing["data"].get("stack", 1)
             existing["data"]["stack"] = min(3, stack + 1)
             existing["turns_remaining"] = duration
+            return
+
+        if name == "bleed" and existing:
+            stack = existing["data"].get("stack", 1)
+            if stack < 3:
+                existing["data"]["stack"] = stack + 1
             return
 
         self.status_effects = [e for e in self.status_effects if e["name"] != name]
@@ -160,8 +167,8 @@ class Character:
         return 0
 
     def tick_status_effects(self) -> dict:
-        """Tick durations, process DOT damage, and consume stun. Returns info for UI/log."""
-        result = {"dmg_taken": 0, "stunned": False, "messages": []}
+        """Tick durations, process DOT/healing, and consume stun/frozen. Returns info for UI/log."""
+        result = {"dmg_taken": 0, "healed": 0, "stunned": False, "confused": False, "messages": []}
 
         for e in self.status_effects[:]:
             if e["name"] == "burn":
@@ -175,11 +182,28 @@ class Character:
                 actual = self.take_damage(dmg)
                 result["dmg_taken"] += actual
                 result["messages"].append(("poison", actual, stack))
+            elif e["name"] == "bleed":
+                stack = e.get("data", {}).get("stack", 1)
+                dmg = 4 * stack
+                self.current_hp = max(0, self.current_hp - dmg)
+                result["dmg_taken"] += dmg
+                result["messages"].append(("bleed", dmg, stack))
+            elif e["name"] == "regen":
+                heal = min(6, self.max_hp - self.current_hp)
+                self.current_hp += heal
+                result["healed"] += heal
+                result["messages"].append(("regen", heal))
 
         for e in self.status_effects[:]:
             if e["name"] == "stun":
                 result["stunned"] = True
                 self.status_effects.remove(e)
+            elif e["name"] == "frozen":
+                result["stunned"] = True
+                self.status_effects.remove(e)
+                self.add_status("frozen_shatter", "debuff", 1, {})
+            elif e["name"] == "confused":
+                result["confused"] = True
 
         for e in self.status_effects[:]:
             e["turns_remaining"] -= 1
@@ -233,7 +257,10 @@ class Character:
     # ── Damage ─────────────────────────────────────────────────────
 
     def take_damage(self, raw_damage: int) -> int:
-        """Apply damage. Vulnerable targets take 1.5x. Returns actual damage dealt."""
+        """Apply damage. Vulnerable targets take 1.5x. Frozen shatter takes +50%."""
+        if self.has_status("frozen_shatter"):
+            raw_damage = int(raw_damage * 1.5)
+            self.status_effects = [e for e in self.status_effects if e["name"] != "frozen_shatter"]
         if self.has_status("vulnerable"):
             raw_damage = int(raw_damage * 1.5)
         actual = max(0, raw_damage)

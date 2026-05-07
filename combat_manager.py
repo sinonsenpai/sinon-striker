@@ -118,6 +118,7 @@ class CombatManager:
         self._last_hit_info = None
         self._last_status_tick = None
         self._shake_source = None
+        self._player_confused: bool = False
         self._enemy_turn_count: int = 0
         self._boss_phase2_triggered: bool = False
 
@@ -385,6 +386,24 @@ class CombatManager:
         if self._ach_manager:
             self._ach_manager.inc("skills_used")
 
+        # Confused: 50% chance to hit self (only for damage skills)
+        if skill.get("damage_mult", 0) > 0 and getattr(self, '_player_confused', False) and random.random() < 0.5:
+            self._player_confused = False
+            damage = max(1, int(self.player.atk * skill["damage_mult"] * 0.5))
+            actual = self.player.take_damage(damage)
+            self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False, "confused_self": True}
+            self._add_log(f"{self.player.name} is confused and hits themselves with {skill['name']}! ({actual} damage)")
+            self._sfx("player_hit")
+            if self._ach_manager:
+                self._ach_manager.unlock("confuse_self_hit")
+            if not self.player.is_alive:
+                self.state = TurnState.DEFEAT
+                self._add_log(f"{self.player.name} has fallen... Defeat.")
+            else:
+                self._advance_to_enemy_turn()
+            return
+        self._player_confused = False
+
         if skill.get("damage_mult", 0) > 0:
             # Damage skill (Star-Shatter Strike)
             if not self._check_hit(self.player, self.enemy):
@@ -510,6 +529,12 @@ class CombatManager:
                 self._add_log(f"Burn deals {msg[1]} damage to {self.player.name}!")
             elif msg[0] == "poison":
                 self._add_log(f"Poison (stack {msg[2]}) deals {msg[1]} damage to {self.player.name}!")
+            elif msg[0] == "bleed":
+                self._add_log(f"Bleed (stack {msg[2]}) deals {msg[1]} damage to {self.player.name}!")
+            elif msg[0] == "regen":
+                self._add_log(f"Regen heals {self.player.name} for {msg[1]} HP!")
+                if self._ach_manager:
+                    self._ach_manager.inc("regen_healed", msg[1])
 
         if not self.player.is_alive:
             self.state = TurnState.DEFEAT
@@ -525,6 +550,10 @@ class CombatManager:
             self._add_log("--- Enemy's turn ---")
             self._last_hit_info = {"target": "player", "damage": 0, "is_crit": False, "status_stun": True}
             return
+
+        self._player_confused = result["confused"]
+        if self._player_confused:
+            self._add_log(f"{self.player.name} is confused...")
 
         self.state = TurnState.MENU_SELECT
         self._add_log("--- Your turn: Choose an action ---")
@@ -543,6 +572,10 @@ class CombatManager:
                 self._add_log(f"Burn deals {msg[1]} damage to {self.enemy.name}!")
             elif msg[0] == "poison":
                 self._add_log(f"Poison (stack {msg[2]}) deals {msg[1]} damage to {self.enemy.name}!")
+            elif msg[0] == "bleed":
+                self._add_log(f"Bleed (stack {msg[2]}) deals {msg[1]} damage to {self.enemy.name}!")
+            elif msg[0] == "regen":
+                self._add_log(f"Regen heals {self.enemy.name} for {msg[1]} HP!")
 
         if not self.enemy.is_alive:
             if self._ach_manager:
@@ -564,7 +597,23 @@ class CombatManager:
         self._add_log("--- Enemy's turn ---")
 
     def _execute_attack(self):
-        """Execute a basic strike attack — supports crits and focused buff."""
+        """Execute a basic strike attack — supports crits, focused buff, and confused self-hit."""
+        # Confused: 50% chance to hit self
+        if getattr(self, '_player_confused', False) and random.random() < 0.5:
+            self._player_confused = False
+            damage = max(1, int(self.player.atk * 0.6))
+            actual = self.player.take_damage(damage)
+            self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False, "confused_self": True}
+            self._add_log(f"{self.player.name} is confused and attacks themselves! ({actual} damage)")
+            self._sfx("player_hit")
+            if not self.player.is_alive:
+                self.state = TurnState.DEFEAT
+                self._add_log(f"{self.player.name} has fallen... Defeat.")
+            else:
+                self._advance_to_enemy_turn()
+            return
+        self._player_confused = False
+
         if not self._check_hit(self.player, self.enemy):
             self._last_hit_info = {"target": "enemy", "damage": 0, "is_crit": False, "missed": True}
             self._add_log(f"{self.player.name}'s attack missed!")
@@ -607,8 +656,7 @@ class CombatManager:
             self._advance_to_enemy_turn()
 
     def _enemy_attack(self):
-        """Enemy attacks the player — Vanguard Brute uses Brute Smash every 3 turns.
-        Bosses trigger Phase 2 at 50% HP and use Warden's Wrath every 3 turns."""
+        """Enemy attacks with signature moves per enemy type."""
         self._enemy_turn_count += 1
 
         # Boss Phase 2 trigger
@@ -619,9 +667,80 @@ class CombatManager:
                 self._add_log("The Abyssal Warden roars and enters Phase 2!")
                 self._sfx("boss_roar")
 
-        if not self._check_hit(self.enemy, self.player):
+        # Confused enemy: 50% chance to hit self
+        enemy_confused = self.enemy.has_status("confused")
+        if enemy_confused and random.random() < 0.5:
+            damage = max(1, int(self.enemy.atk * 0.6))
+            actual = self.enemy.take_damage(damage)
+            self._last_hit_info = {"target": "enemy", "damage": actual, "is_crit": False, "confused_self": True}
+            self._add_log(f"{self.enemy.name} is confused and attacks itself! ({actual} damage)")
+            self._sfx("player_hit")
+            self._shake_source = "enemy"
+            if self._ach_manager:
+                self._ach_manager.unlock("confuse_self_hit")
+            if not self.enemy.is_alive:
+                if self._ach_manager:
+                    self._ach_manager.inc("kills")
+                self._award_xp()
+                self.state = TurnState.VICTORY
+                self._add_log(f"{self.enemy.name} defeated itself in confusion! Victory!")
+                self._sfx("boss_defeated" if self.is_boss else "victory")
+                self._award_gold()
+                self._drop_loot()
+                return
+            self._advance_to_menu()
+            return
+
+        ename = self.enemy.name
+
+        # ── Slime: Split (every 4 turns) ──
+        if ename == "Slime" and self._enemy_turn_count % 4 == 0:
+            heal = min(15, self.enemy.max_hp - self.enemy.current_hp)
+            self.enemy.current_hp += heal
+            self.player.add_status("poison", "debuff", 3, {})
+            self._add_log(f"Slime splits! Heals {heal} HP and poisons you!")
+            self._sfx("buff")
+            self._advance_to_menu()
+            return
+
+        # ── Wisp: Life Drain (every 3 turns) ──
+        if ename == "Wisp" and self._enemy_turn_count % 3 == 0:
+            if not self._check_hit(self.enemy, self.player):
+                self._last_hit_info = {"target": "player", "damage": 0, "is_crit": False, "missed": True}
+                self._add_log(f"{ename}'s Life Drain missed!")
+                self._sfx("miss")
+                self._advance_to_menu()
+                return
+            total_atk = self.enemy.atk
+            total_def = self.player.defn
+            damage = max(1, int(total_atk * 1.2 - total_def))
+            actual = self.player.take_damage(damage)
+            heal = int(actual * 0.5)
+            heal = min(heal, self.enemy.max_hp - self.enemy.current_hp)
+            self.enemy.current_hp += heal
+            self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False}
+            self._sfx("player_hit")
+            self._shake_source = "enemy"
+            self._add_log(f"{ename} uses Life Drain! Deals {actual} damage and heals {heal} HP!")
+            if not self.player.is_alive:
+                self.state = TurnState.DEFEAT
+                self._add_log(f"{self.player.name} has fallen... Defeat.")
+            else:
+                self._advance_to_menu()
+            return
+
+        # ── Determine hit and special moves ──
+        # Stalker Backstab: ignores evasion
+        is_stalker = ename == "Shadow Stalker"
+        is_backstab = is_stalker and random.random() < 0.3
+        if is_backstab:
+            # Backstab ignores evasion
+            pass  # handled below via check_hit override
+
+        # Normal hit check (Stalker Backstab always hits)
+        if not is_backstab and not self._check_hit(self.enemy, self.player):
             self._last_hit_info = {"target": "player", "damage": 0, "is_crit": False, "missed": True}
-            self._add_log(f"{self.enemy.name}'s attack missed!")
+            self._add_log(f"{ename}'s attack missed!")
             self._sfx("miss")
             self._advance_to_menu()
             return
@@ -629,16 +748,34 @@ class CombatManager:
         total_atk = self.enemy.atk
         total_def = self.player.defn
 
-        # Brute Smash: every 3 turns, 1.5x damage
-        is_smash = self.enemy.name == "Vanguard Brute" and self._enemy_turn_count % 3 == 0
-        # Boss Warden's Wrath: every 3 turns, 2x damage
+        # Special move flags
+        is_smash = ename == "Vanguard Brute" and self._enemy_turn_count % 3 == 0
         is_wrath = self.is_boss and self._enemy_turn_count % 3 == 0
-        # Golem Crush: every 3 turns, 2x damage with partial DEF ignore
-        is_crush = self.enemy.name == "Golem" and self._enemy_turn_count % 3 == 0
-        mult = 2.0 if is_wrath else (2.0 if is_crush else (1.5 if is_smash else 1.0))
-        skill_name = ("Warden's Wrath! " if is_wrath else
-                      ("Crush! " if is_crush else
-                       ("Brute Smash! " if is_smash else "")))
+        is_crush = ename == "Golem" and self._enemy_turn_count % 3 == 0
+        is_fire = ename == "Dragon" and random.random() < 0.3
+        is_hex = ename == "Cultist" and random.random() < 0.4
+
+        # Damage multiplier
+        mult = 1.0
+        skill_name = ""
+        if is_wrath:
+            mult = 2.0
+            skill_name = "Warden's Wrath! "
+        elif is_crush:
+            mult = 2.0
+            skill_name = "Crush! "
+        elif is_smash:
+            mult = 1.5
+            skill_name = "Brute Smash! "
+        elif is_fire:
+            mult = 1.3
+            skill_name = "Fire Breath! "
+        elif is_hex:
+            mult = 1.0
+            skill_name = "Dark Hex! "
+        elif is_backstab:
+            mult = 1.5
+            skill_name = "Backstab! "
 
         effective_def = total_def // 2 if is_crush else total_def
         damage = max(1, int(total_atk * mult - effective_def))
@@ -646,25 +783,24 @@ class CombatManager:
         self._last_hit_info = {"target": "player", "damage": actual, "is_crit": False}
         self._sfx("player_hit")
         self._shake_source = "enemy"
-        self._add_log(f"{self.enemy.name} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
+        self._add_log(f"{ename} uses {skill_name}Deals {actual} damage! (ATK:{total_atk} vs DEF:{total_def})")
 
-        # Enemy status application (not on smash/wrath/crush specials)
-        if self.player.is_alive and not is_wrath and not is_smash and not is_crush:
-            if self.enemy.name == "Dragon" and random.random() < 0.3:
+        # Status application for special moves
+        if self.player.is_alive:
+            if is_fire:
                 self.player.add_status("burn", "debuff", 3, {"potency": 6})
-                self._add_log(f"{self.enemy.name}'s flames burn you! (Burn 3 turns)")
-            elif self.enemy.name == "Wisp" and random.random() < 0.5:
-                self.player.add_status("burn", "debuff", 3, {"potency": 5})
-                self._add_log(f"{self.enemy.name}'s eerie flame burns you! (Burn 3 turns)")
-            elif self.enemy.name == "Cultist" and random.random() < 0.4:
-                self.player.add_status("poison", "debuff", 3, {})
-                self._add_log(f"{self.enemy.name}'s dark magic poisons you! (Poison 3 turns)")
-            elif self.enemy.name == "Vanguard Brute" and random.random() < 0.25:
+                self._add_log(f"{ename}'s Fire Breath burns you! (Burn 3 turns)")
+            elif is_hex:
+                self.player.add_status("confused", "debuff", 2, {})
+                self._add_log(f"{ename}'s Dark Hex confuses you! (Confused 2 turns)")
+            elif is_backstab:
+                self.player.add_status("bleed", "debuff", 4, {})
+                self._add_log(f"{ename}'s Backstab causes bleeding! (Bleed 4 turns)")
+                if self._ach_manager:
+                    self._ach_manager.inc("bleed_applied")
+            elif is_smash and random.random() < 0.25:
                 self.player.add_status("stun", "debuff", 1, {})
-                self._add_log(f"{self.enemy.name}'s impact stuns you! (Stun)")
-            elif self.enemy.name == "Shadow Stalker" and random.random() < 0.3:
-                self.player.add_status("stun", "debuff", 1, {})
-                self._add_log(f"{self.enemy.name}'s shadow strike stuns you! (Stun)")
+                self._add_log(f"{ename}'s Smash stuns you! (Stun)")
 
         if not self.player.is_alive:
             self.state = TurnState.DEFEAT
