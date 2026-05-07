@@ -1,9 +1,28 @@
 {
-  "unlocked": [],
+  "unlocked": [
+    "delver",
+    "slayer",
+    "deaths_door",
+    "novice",
+    "first_blood",
+    "blessed",
+    "untouchable",
+    "set_bonus"
+  ],
   "counters": {
-    "level_reached": 1,
-    "level_warrior": 1,
-    "deepest_floor": 1,
-    "skills_used": 1
+    "level_reached": 5,
+    "level_warrior": 5,
+    "deepest_floor": 4,
+    "visited_depths": 1,
+    "kills": 13,
+    "gold_earned": 447,
+    "items_found": 16,
+    "shrines_used": 3,
+    "dungeons_completed": 3,
+    "flawless_victories": 6,
+    "crits": 3,
+    "regen_healed": 79,
+    "skills_used": 1,
+    "deaths": 1
   }
 }

@@ -68,6 +68,42 @@ class DungeonUI:
     def reset_branch_selection(self):
         self.branch_selection = 0
 
+    # ── Minimap ───────────────────────────────────────────────────
+
+    def _draw_minimap(self, x: int, y: int):
+        """Draw room icon strip showing dungeon progress."""
+        if not self.run or not self.run.rooms:
+            return
+        rooms = self.run.rooms
+        current_idx = self.run.room_index
+        icon_size = 18
+        gap = 4
+        total_w = len(rooms) * icon_size + (len(rooms) - 1) * gap
+        start_x = (self.w - total_w) // 2
+
+        for i, room in enumerate(rooms):
+            rx = start_x + i * (icon_size + gap)
+            color = ROOM_COLORS.get(room["type"], DIM_WHITE)
+            alpha = 255
+
+            if i < current_idx:
+                # Past: dim
+                alpha = 80
+            elif i == current_idx:
+                # Current: pulsing
+                pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
+                alpha = int(180 + 60 * pulse)
+            else:
+                # Future: hidden
+                alpha = 30
+
+            # Draw room dot
+            dot = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+            pygame.draw.rect(dot, (*color, alpha), (0, 0, icon_size, icon_size), 0, border_radius=3)
+            if i == current_idx:
+                pygame.draw.rect(dot, (*color, alpha), (0, 0, icon_size, icon_size), 1, border_radius=3)
+            self.screen.blit(dot, (rx, y))
+
     # ── Floor select ──────────────────────────────────────────────
 
     def draw_floor_select(self):
@@ -127,11 +163,12 @@ class DungeonUI:
         label = ROOM_LABELS.get(rtype, "?")
         total = self.run.total_rooms
 
+        # ── Minimap ──
+        self._draw_minimap(6, 10)
+
         # Room counter
         counter = self.font_medium.render(f"Room {self.run.room_index + 1} / {total}", True, DIM_WHITE)
         self.screen.blit(counter, ((self.w - counter.get_width()) // 2, 30))
-
-        # Progress bar
         bar_w, bar_h = 400, 6
         bx = (self.w - bar_w) // 2
         by = 60
@@ -426,6 +463,67 @@ class DungeonUI:
         if not isinstance(item, Consumable):
             rarity_surf = self.font_small.render(item.rarity.name, True, rarity_color)
             self.screen.blit(rarity_surf, ((self.w - rarity_surf.get_width()) // 2, py + 112))
+
+    # ── Shrine ─────────────────────────────────────────────────────
+
+    def draw_shrine(self):
+        """Draw the shrine room with 3 blessing choices."""
+        self.screen.fill(BG_COLOR)
+        title = self.font_title.render("Ancient Shrine", True, GOLD)
+        self.screen.blit(title, ((self.w - title.get_width()) // 2, 60))
+
+        desc = self.font_medium.render("Choose a blessing:", True, DIM_WHITE)
+        self.screen.blit(desc, ((self.w - desc.get_width()) // 2, 110))
+
+        blessings = [
+            ("1", "Blessing of Might", "+20% ATK for this run", (255, 100, 60)),
+            ("2", "Blessing of Fortitude", "+20% DEF for this run", (60, 160, 255)),
+            ("3", "Blessing of Vitality", "Regen 5 HP/turn for this run", (80, 220, 80)),
+        ]
+        for i, (key, name, effect, color) in enumerate(blessings):
+            by = 170 + i * 90
+            panel = pygame.Surface((500, 70), pygame.SRCALPHA)
+            panel.fill((20, 15, 40, 200))
+            self.screen.blit(panel, ((self.w - 500) // 2, by))
+            pygame.draw.rect(self.screen, color, ((self.w - 500) // 2, by, 500, 70), 1, border_radius=5)
+
+            key_surf = self.font_large.render(key, True, color)
+            self.screen.blit(key_surf, ((self.w - 500) // 2 + 20, by + 12))
+
+            name_surf = self.font_medium.render(name, True, WHITE)
+            self.screen.blit(name_surf, ((self.w - 500) // 2 + 60, by + 8))
+
+            eff_surf = self.font_small.render(effect, True, DIM_WHITE)
+            self.screen.blit(eff_surf, ((self.w - 500) // 2 + 60, by + 40))
+
+        hint = self.font_hud.render("[1/2/3] Pick a blessing", True, (120, 120, 140))
+        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, 450))
+
+    # ── Trap ───────────────────────────────────────────────────────
+
+    def draw_trap_result(self, trap_type: str):
+        """Draw the trap result overlay."""
+        self.screen.fill(BG_COLOR)
+
+        trap_info = {
+            "spike": ("Spike Trap!", "You take 15% max HP damage.", RED),
+            "gas": ("Poison Gas!", "You are Poisoned for 2 turns.", (100, 200, 80)),
+            "collapse": ("Collapse!", "You are Stunned for 1 turn.", (255, 255, 100)),
+            "dodge": ("Trap Dodged!", "Your Rogue instincts saved you.", NEON_CYAN),
+        }
+        info = trap_info.get(trap_type, ("Trap!", "Something happened.", RED))
+
+        icon = self.font_icon.render("⚠", True, info[2])
+        self.screen.blit(icon, ((self.w - icon.get_width()) // 2, 140))
+
+        title = self.font_title.render(info[0], True, info[2])
+        self.screen.blit(title, ((self.w - title.get_width()) // 2, 200))
+
+        desc = self.font_small.render(info[1], True, DIM_WHITE)
+        self.screen.blit(desc, ((self.w - desc.get_width()) // 2, 250))
+
+        hint = self.font_hud.render("[ENTER] Continue", True, (120, 120, 140))
+        self.screen.blit(hint, ((self.w - hint.get_width()) // 2, 400))
 
     # ── Exit / Run complete ───────────────────────────────────────
 

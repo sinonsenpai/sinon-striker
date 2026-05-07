@@ -71,6 +71,8 @@ class Character:
         total = self._base_atk + bonus
         if self.has_status("adrenaline"):
             total = int(total * 1.25)
+        if self.has_status("blessing_might"):
+            total = int(total * 1.20)
         return total
 
     @property
@@ -85,6 +87,8 @@ class Character:
             total = int(total * 1.30)
         elif self.has_status("fortify"):
             total = int(total * 1.50)
+        if self.has_status("blessing_fortitude"):
+            total = int(total * 1.20)
         return total
 
     def get_active_sets(self) -> dict:
@@ -228,7 +232,8 @@ class Character:
                 result["dmg_taken"] += dmg
                 result["messages"].append(("bleed", dmg, stack))
             elif e["name"] == "regen":
-                heal = min(6, self.max_hp - self.current_hp)
+                potency = e.get("data", {}).get("potency", 6)
+                heal = min(potency, self.max_hp - self.current_hp)
                 self.current_hp += heal
                 result["healed"] += heal
                 result["messages"].append(("regen", heal))

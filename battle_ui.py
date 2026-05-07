@@ -59,6 +59,8 @@ STATUS_SHORT = {
     "bleed":           "D",
     "confused":        "C",
     "regen":           "+",
+    "blessing_might":       "M",
+    "blessing_fortitude":   "D",
 }
 STATUS_COLOR = {
     "burn":            (255, 120, 20),
@@ -71,6 +73,8 @@ STATUS_COLOR = {
     "bleed":           (200, 40, 40),
     "confused":        (220, 130, 220),
     "regen":           (80, 220, 80),
+    "blessing_might":       (255, 180, 60),
+    "blessing_fortitude":   (100, 160, 255),
 }
 
 SHAKE_MAX_INTENSITY = 8

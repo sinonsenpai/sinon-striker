@@ -81,6 +81,9 @@ class CombatManager:
         # Dynamic skill list from registry
         self._available_skills = SkillRegistry.get_available_skills(player)
 
+        # Apply dungeon blessings (from shrine)
+        self._apply_blessings()
+
         # Kick off the first round
         self._advance_to_menu()
 
@@ -625,6 +628,17 @@ class CombatManager:
         """Append a message to the battle log."""
         self._log.append(msg)
 
+    def _apply_blessings(self):
+        """Apply run blessings from the dungeon to the player."""
+        blessings = getattr(self.player, 'run_blessings', {})
+        if blessings:
+            if blessings.get("might"):
+                self.player.add_status("blessing_might", "buff", 999, {})
+            if blessings.get("fortitude"):
+                self.player.add_status("blessing_fortitude", "buff", 999, {})
+            if blessings.get("vitality"):
+                self.player.add_status("regen", "buff", 999, {})
+
     def _advance_to_menu(self):
         """Transition to MENU_SELECT — process player status effects first."""
         self.player.tick_cooldowns()
@@ -951,4 +965,6 @@ class CombatManager:
         self._shake_source = None
         self._enemy_turn_count = 0
         self._boss_phase2_triggered = False
+        # Re-apply blessings before first turn
+        self._apply_blessings()
         self._advance_to_menu()

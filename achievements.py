@@ -47,6 +47,11 @@ ACHIEVEMENT_DEFS = [
     {"id": "scholar", "name": "Scholar", "desc": "Unlock all 8 skills for your class.", "icon": "📚"},
     {"id": "jack_of_trades", "name": "Jack of All Trades", "desc": "Use 10 different skills in a single dungeon run.", "icon": "🎭"},
     {"id": "untouchable", "name": "Untouchable", "desc": "Win 5 fights without taking damage.", "icon": "💨", "counter": "flawless_victories", "threshold": 5},
+    # Phase 3 — Dungeon
+    {"id": "tourist", "name": "Tourist", "desc": "Visit all 3 dungeon biomes.", "icon": "🗺️"},
+    {"id": "blessed", "name": "Blessed", "desc": "Use a shrine.", "icon": "🙏"},
+    {"id": "devout", "name": "Devout", "desc": "Use 10 shrines.", "icon": "⛪", "counter": "shrines_used", "threshold": 10},
+    {"id": "light_footed", "name": "Light-Footed", "desc": "Dodge a trap (Rogue passive).", "icon": "👣"},
 ]
 
 

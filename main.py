@@ -67,7 +67,11 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
         )
         enemy._eva = enemy_data.get("eva", 0.05)
         is_boss = rtype == RoomType.BOSS
+        # Sync run blessings to player for this combat
+        player.run_blessings = dict(dungeon.blessings) if hasattr(dungeon, 'blessings') else {}
         combat = CombatManager(player, enemy, snd, ach_manager, is_boss=is_boss, floor=room.get("floor", 1))
+        combat.in_dungeon = True
+        combat._apply_blessings()
         return ("battle", combat)
 
     elif rtype == RoomType.LOOT:
@@ -85,6 +89,24 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
     elif rtype == RoomType.SHOP:
         # Shop is handled in-room via key presses
         return "shop"
+
+    elif rtype == RoomType.SHRINE:
+        # Shrine offers 3 blessings
+        return "shrine"
+
+    elif rtype == RoomType.TRAP:
+        # Trap triggers immediately with Rogue dodge chance
+        dodge = False
+        if hasattr(player, 'player_class') and player.player_class:
+            from skills import PlayerClass
+            if player.player_class == PlayerClass.ROGUE and random.random() < 0.5:
+                dodge = True
+        if dodge:
+            if ach_manager:
+                ach_manager.unlock("light_footed")
+            return ("trap", "dodge")
+        effect = random.choice(["spike", "gas", "collapse"])
+        return ("trap", effect)
 
     elif rtype == RoomType.EXIT:
         bonus = dungeon.floor * 20 + dungeon.room_index * 10
@@ -343,11 +365,16 @@ def main():
                             dungeon_sub = "rest"
                         elif result == "shop":
                             dungeon_sub = "shop"
+                        elif result == "shrine":
+                            dungeon_sub = "shrine"
+                        elif isinstance(result, tuple) and result[0] == "trap":
+                            dungeon_sub = result[1]  # "dodge", "spike", "gas", "collapse"
+                            _apply_trap(player, result[1], dungeon_run, ach_manager)
+                            dungeon_run.mark_cleared()
                         elif isinstance(result, tuple) and result[0] == "complete":
                             dungeon_sub = "complete"
                         elif isinstance(result, tuple) and result[0] == "battle":
                             combat = result[1]
-                            combat.in_dungeon = True
                             ui = BattleUI(screen)
                             god_mode = False
                             dungeon_sub = ""
@@ -389,6 +416,28 @@ def main():
                                 dungeon_ui.reset_chest()
                                 dungeon_sub = ""
                                 save_game(player, snd, ach_manager, current_floor)
+                    elif dungeon_sub == "shrine":
+                        if event.key == pygame.K_1 and dungeon_run.current:
+                            dungeon_run.blessings["might"] = True
+                            dungeon_run.mark_cleared()
+                            dungeon_sub = ""
+                            ach_manager.unlock("blessed")
+                            ach_manager.inc("shrines_used")
+                        elif event.key == pygame.K_2 and dungeon_run.current:
+                            dungeon_run.blessings["fortitude"] = True
+                            dungeon_run.mark_cleared()
+                            dungeon_sub = ""
+                            ach_manager.unlock("blessed")
+                            ach_manager.inc("shrines_used")
+                        elif event.key == pygame.K_3 and dungeon_run.current:
+                            dungeon_run.blessings["vitality"] = True
+                            dungeon_run.mark_cleared()
+                            dungeon_sub = ""
+                            ach_manager.unlock("blessed")
+                            ach_manager.inc("shrines_used")
+                    elif dungeon_sub in ("spike", "gas", "collapse", "dodge"):
+                        if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            dungeon_sub = ""
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "rest":
                         # Advance past rest room
                         if dungeon_run.current and dungeon_run.current["cleared"]:
@@ -614,6 +663,19 @@ def main():
         # ── Achievement checks ────────────────────────────────────
         if player is not None:
             ach_manager.set("level_reached", player.level)
+            # Tourist: track visited biomes
+            if dungeon_run is not None:
+                biome_name = dungeon_run.biome["name"]
+                if biome_name == "The Depths":
+                    ach_manager.set("visited_depths", 1)
+                elif biome_name == "The Catacombs":
+                    ach_manager.set("visited_catacombs", 1)
+                elif biome_name == "The Abyss":
+                    ach_manager.set("visited_abyss", 1)
+                if ach_manager.counters.get("visited_depths", 0) and \
+                   ach_manager.counters.get("visited_catacombs", 0) and \
+                   ach_manager.counters.get("visited_abyss", 0):
+                    ach_manager.unlock("tourist")
             if player.player_class:
                 pc = player.player_class
                 if pc == PlayerClass.WARRIOR:
@@ -658,6 +720,10 @@ def main():
                 dungeon_ui.draw_room_cleared()
             elif dungeon_sub == "shop":
                 dungeon_ui.draw_room()
+            elif dungeon_sub == "shrine":
+                dungeon_ui.draw_shrine()
+            elif dungeon_sub in ("spike", "gas", "collapse", "dodge"):
+                dungeon_ui.draw_trap_result(dungeon_sub)
             elif dungeon_sub == "complete":
                 dungeon_ui.draw_run_complete()
             elif dungeon_sub == "death":
@@ -805,6 +871,19 @@ def _draw_tree_select(screen, selected_class, tree_idx, dt_ms):
 
     hint = font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER] Confirm", True, (100, 100, 130))
     screen.blit(hint, ((w - hint.get_width()) // 2, py + panel_h + 14))
+
+
+def _apply_trap(player, trap_type, dungeon, ach_manager):
+    """Apply trap effect to player."""
+    if trap_type == "dodge":
+        return
+    elif trap_type == "spike":
+        dmg = int(player.max_hp * 0.15)
+        player.current_hp = max(1, player.current_hp - dmg)
+    elif trap_type == "gas":
+        player.add_status("poison", "debuff", 2, {})
+    elif trap_type == "collapse":
+        player.add_status("stun", "debuff", 1, {})
 
 
 def _buy_dungeon_shop(player, idx):

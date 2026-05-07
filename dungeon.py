@@ -14,6 +14,8 @@ class RoomType(Enum):
     SHOP = auto()
     EXIT = auto()
     BOSS = auto()
+    SHRINE = auto()
+    TRAP = auto()
 
 
 ROOM_ICONS = {
@@ -24,6 +26,8 @@ ROOM_ICONS = {
     RoomType.SHOP: "shop",
     RoomType.EXIT: "exit",
     RoomType.BOSS: "boss",
+    RoomType.SHRINE: "shrine",
+    RoomType.TRAP: "trap",
 }
 
 ROOM_COLORS = {
@@ -34,6 +38,8 @@ ROOM_COLORS = {
     RoomType.SHOP: (0, 240, 255),
     RoomType.EXIT: (255, 215, 0),
     RoomType.BOSS: (255, 60, 60),
+    RoomType.SHRINE: (255, 200, 100),
+    RoomType.TRAP: (200, 50, 50),
 }
 
 ROOM_LABELS = {
@@ -44,6 +50,8 @@ ROOM_LABELS = {
     RoomType.SHOP: "Shop",
     RoomType.EXIT: "Exit",
     RoomType.BOSS: "Boss",
+    RoomType.SHRINE: "Shrine",
+    RoomType.TRAP: "Trap",
 }
 
 FLAVOR = {
@@ -82,7 +90,52 @@ FLAVOR = {
         "The ground shakes with mighty footsteps.",
         "An aura of pure dread emanates from beyond.",
     ],
+    RoomType.SHRINE: [
+        "An ancient shrine hums with power.",
+        "A divine light bathes the chamber.",
+        "Offerings left by those before you catch your eye.",
+    ],
+    RoomType.TRAP: [
+        "The floor tiles look suspicious...",
+        "You hear a faint click beneath your feet.",
+        "Tripwire glints in the torchlight.",
+    ],
 }
+
+# ── Biome definitions ────────────────────────────────────────────────
+
+BIOMES = {
+    "depths": {
+        "name": "The Depths",
+        "floors": (1, 4),
+        "bg_tint": (30, 20, 10),
+        "particle_color": (255, 140, 40),
+        "particle_count": 25,
+    },
+    "catacombs": {
+        "name": "The Catacombs",
+        "floors": (5, 9),
+        "bg_tint": (10, 15, 30),
+        "particle_color": (60, 120, 220),
+        "particle_count": 30,
+    },
+    "abyss": {
+        "name": "The Abyss",
+        "floors": (10, 999),
+        "bg_tint": (5, 3, 15),
+        "particle_color": (120, 40, 180),
+        "particle_count": 40,
+    },
+}
+
+
+def get_biome(floor: int) -> dict:
+    """Return the biome dict for a given floor."""
+    for biome in BIOMES.values():
+        lo, hi = biome["floors"]
+        if lo <= floor <= hi:
+            return biome
+    return BIOMES["abyss"]
 
 BRANCH_POINTS = {2, 4}
 
@@ -164,8 +217,11 @@ def _generate_room(floor: int) -> dict:
     if roll < 0.45:
         rtype = RoomType.COMBAT
         enemy = _pick_enemy(floor)
-    elif roll < 0.65:
+    elif roll < 0.55:
         rtype = RoomType.LOOT
+        enemy = None
+    elif roll < 0.65:
+        rtype = RoomType.SHRINE
         enemy = None
     elif roll < 0.80:
         rtype = RoomType.REST
@@ -173,10 +229,13 @@ def _generate_room(floor: int) -> dict:
     elif roll < 0.90:
         rtype = RoomType.SHOP
         enemy = None
-    else:
+    elif roll < 0.98:
         rtype = RoomType.ELITE
         elite_pool = ["brute"] if floor < 3 else ["brute", "golem", "stalker"]
         enemy = random.choice(elite_pool)
+    else:
+        rtype = RoomType.TRAP
+        enemy = None
     return {
         "type": rtype,
         "enemy": enemy,
@@ -207,6 +266,7 @@ class DungeonRun:
     def __init__(self, player, floor: int = 1):
         self.player = player
         self.floor = floor
+        self.biome = get_biome(floor)
         self.rooms = generate_dungeon(floor)
         self.room_index = 0          # rooms completed (also index into rooms)
         self.total_rooms = len(self.rooms)
@@ -220,6 +280,9 @@ class DungeonRun:
         # Branching state
         self.branching = False
         self.branch_choices = []     # two room dicts when at a branch point
+
+        # Blessings from shrines (apply for the run)
+        self.blessings: dict = {}
 
     @property
     def current(self) -> dict:
