@@ -133,13 +133,14 @@ def deserialize_consumable(data):
     return item
 
 
-def save_settings(sfx_volume: float, music_volume: float):
+def save_settings(sfx_volume: float, music_volume: float, muted: bool = False):
     """Write audio settings to JSON."""
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump({
                 "sfx_volume": sfx_volume,
                 "music_volume": music_volume,
+                "muted": muted,
             }, f)
     except Exception:
         pass
@@ -148,6 +149,6 @@ def save_settings(sfx_volume: float, music_volume: float):
 def load_settings() -> dict:
     """Return saved audio settings, or defaults if none exist."""
     if not os.path.exists(SETTINGS_FILE):
-        return {"sfx_volume": 0.3, "music_volume": 0.25}
+        return {"sfx_volume": 0.3, "music_volume": 0.25, "muted": False}
     with open(SETTINGS_FILE) as f:
         return json.load(f)

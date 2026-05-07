@@ -29,12 +29,13 @@ class OptionsScreen:
         self.font_small = pygame.font.SysFont("arial", 16, bold=False)
         self.font_hud = pygame.font.SysFont("arial", 14, bold=False)
 
-        self.options = ["SFX Volume", "Music Volume", "Back"]
+        self.options = ["SFX Volume", "Music Volume", "Mute", "Back"]
         self.selected_index = 0
 
         # Sync with sound manager
         self.sfx_volume = self.snd.volume
         self.music_volume = self.snd.get_music_volume()
+        self.muted = getattr(self.snd, "muted", False)
 
         self._elapsed = 0.0
 
@@ -57,10 +58,17 @@ class OptionsScreen:
         elif self.selected_index == 1:
             self.music_volume = max(0.0, min(1.0, self.music_volume + delta))
             self.snd.set_music_volume(self.music_volume)
+        elif self.selected_index == 2 and delta != 0:
+            self.muted = not self.muted
+            self.snd.set_muted(self.muted)
 
     def confirm(self):
         """Return action string or None."""
         if self.selected_index == 2:
+            self.muted = not self.muted
+            self.snd.set_muted(self.muted)
+            return None
+        if self.selected_index == 3:
             self._save_settings()
             return "back"
         return None
@@ -80,8 +88,8 @@ class OptionsScreen:
         panel_w = 460
         pad = 25
         # Calculate height: pad + title(36) + gap(8) + sep(1) + gap(30) + slider(18) + gap(24) +
-        #                   slider(18) + gap(40) + div(1) + gap(16) + back(36) + pad
-        panel_h = pad + 36 + 8 + 1 + 30 + 18 + 24 + 18 + 40 + 1 + 16 + 36 + pad
+        #                   slider(18) + gap(24) + toggle(28) + gap(26) + div(1) + gap(16) + back(36) + pad
+        panel_h = pad + 36 + 8 + 1 + 30 + 18 + 24 + 18 + 24 + 28 + 26 + 1 + 16 + 36 + pad
         px = (self.w - panel_w) // 2
         py = (self.h - panel_h) // 2
 
@@ -120,8 +128,13 @@ class OptionsScreen:
         selected = self.selected_index == 1
         self._draw_slider_row("Music Volume", self.music_volume, music_y, inner_left, slider_x, slider_w, slider_h, pct_x, selected)
 
+        # --- Mute toggle ---
+        mute_y = music_y + 24
+        selected = self.selected_index == 2
+        self._draw_toggle_row("Mute", self.muted, mute_y, inner_left, slider_x, 100, 28, selected)
+
         # --- Divider between settings and Back ---
-        divider_y = music_y + 40
+        divider_y = mute_y + 26
         pygame.draw.line(self.screen, NEON_CYAN_DIM,
                          (px + pad + 20, divider_y), (px + panel_w - pad - 20, divider_y), 1)
 
@@ -182,7 +195,7 @@ class OptionsScreen:
                                       sy + (slider_h - pct_surf.get_height()) // 2))
 
     def _draw_back_button(self, y, px, panel_w, pad):
-        selected = self.selected_index == 2
+        selected = self.selected_index == 3
         btn_w, btn_h = 120, 36
         btn_x = px + (panel_w - btn_w) // 2
 
@@ -208,10 +221,29 @@ class OptionsScreen:
         self.screen.blit(surf, (btn_x + (btn_w - surf.get_width()) // 2,
                                  y + (btn_h - surf.get_height()) // 2))
 
+
+    def _draw_toggle_row(self, label, enabled, y, label_x, toggle_x, toggle_w, toggle_h, selected):
+        label_color = NEON_CYAN if selected else DIM_WHITE
+        label_surf = self.font_medium.render(label, True, label_color)
+        self.screen.blit(label_surf, (label_x, y + (toggle_h - label_surf.get_height()) // 2))
+
+        bg_color = (0, 120, 110) if enabled else (55, 35, 45)
+        border_color = NEON_CYAN if selected else (80, 80, 100)
+        pygame.draw.rect(self.screen, bg_color, (toggle_x, y, toggle_w, toggle_h), border_radius=14)
+        pygame.draw.rect(self.screen, border_color, (toggle_x, y, toggle_w, toggle_h), width=2, border_radius=14)
+
+        knob_r = 10
+        knob_x = toggle_x + (toggle_w - knob_r - 4 if enabled else knob_r + 4)
+        knob_y = y + toggle_h // 2
+        pygame.draw.circle(self.screen, WHITE, (knob_x, knob_y), knob_r)
+
+        state_surf = self.font_small.render("ON" if enabled else "OFF", True, WHITE)
+        self.screen.blit(state_surf, (toggle_x + toggle_w + 10, y + (toggle_h - state_surf.get_height()) // 2))
+
     def _save_settings(self):
         """Write current volumes to a JSON file."""
         try:
             with open("settings.json", "w") as f:
-                json.dump({"sfx_volume": self.sfx_volume, "music_volume": self.music_volume}, f)
+                json.dump({"sfx_volume": self.sfx_volume, "music_volume": self.music_volume, "muted": self.muted}, f)
         except Exception:
             pass
