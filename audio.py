@@ -280,6 +280,7 @@ class SoundManager:
     def __init__(self):
         self.volume = 0.3
         self.music_volume = 0.25
+        self.muted = False
         self._sounds = {}
         self._current_music = None
 
@@ -293,24 +294,25 @@ class SoundManager:
         settings = load_settings()
         self.volume = settings.get("sfx_volume", 0.3)
         self.music_volume = settings.get("music_volume", 0.25)
+        self.muted = settings.get("muted", False)
 
         for name, env in SOUND_ENVELOPES.items():
             vol = SOUND_VOLUMES.get(name, 0.25)
             self._sounds[name] = generate_sound(env, vol)
 
         self._battle_music = generate_battle_music(4.0)
-        self._battle_music.set_volume(self.music_volume)
+        self._battle_music.set_volume(0.0 if self.muted else self.music_volume)
 
         self._title_music = generate_title_music(6.0)
-        self._title_music.set_volume(self.music_volume)
+        self._title_music.set_volume(0.0 if self.muted else self.music_volume)
 
         self._hub_music = generate_hub_music(5.0)
-        self._hub_music.set_volume(self.music_volume)
+        self._hub_music.set_volume(0.0 if self.muted else self.music_volume)
 
     def play(self, name: str):
         """Play a named sound effect at current volume."""
         snd = self._sounds.get(name)
-        if snd:
+        if snd and not self.muted:
             snd.set_volume(self.volume)
             snd.play()
 
@@ -357,9 +359,17 @@ class SoundManager:
 
     def set_music_volume(self, vol: float):
         self.music_volume = max(0.0, min(1.0, vol))
-        self._title_music.set_volume(self.music_volume)
-        self._hub_music.set_volume(self.music_volume)
-        self._battle_music.set_volume(self.music_volume)
+        self._apply_music_volume()
 
     def get_music_volume(self) -> float:
         return self.music_volume
+
+    def set_muted(self, muted: bool):
+        self.muted = bool(muted)
+        self._apply_music_volume()
+
+    def _apply_music_volume(self):
+        applied = 0.0 if self.muted else self.music_volume
+        self._title_music.set_volume(applied)
+        self._hub_music.set_volume(applied)
+        self._battle_music.set_volume(applied)
