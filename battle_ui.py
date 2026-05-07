@@ -57,7 +57,7 @@ STATUS_SHORT = {
     "frozen":          "Z",
     "frozen_shatter":  "Z",
     "bleed":           "D",
-    "confused":        "?",
+    "confused":        "C",
     "regen":           "+",
 }
 STATUS_COLOR = {
@@ -794,7 +794,9 @@ class BattleUI:
                      + (row_gap if set_bonus_lines > 0 else 0)
                      + (set_bonus_lines * eq_h if set_bonus_lines > 0 else 0)
                      + (row_gap if char.consumables else 0)
-                     + (eq_h if char.consumables else 0))
+                     + (eq_h if char.consumables else 0)
+                     + (4 if char.status_effects else 0)      # gap before status icons
+                     + (eq_h if char.status_effects else 0))   # status icons row
         panel_h = content_h + m * 2
 
         # ── Glass panel (with status-based border color) ──

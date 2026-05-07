@@ -1,12 +1,12 @@
 {
-  "gold": 3235,
-  "level": 11,
-  "xp": 301,
-  "xp_to_next": 325,
-  "base_atk": 35,
-  "base_def": 15,
-  "max_hp": 200,
-  "current_floor": 7,
+  "gold": 3840,
+  "level": 13,
+  "xp": 38,
+  "xp_to_next": 375,
+  "base_atk": 39,
+  "base_def": 17,
+  "max_hp": 220,
+  "current_floor": 8,
   "equipment": {
     "weapon": null,
     "armor": null
@@ -283,6 +283,46 @@
       "atk": 3,
       "defense": 0,
       "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Plate",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "armor",
+      "name": "Brigandine",
+      "rarity": "COMMON",
+      "atk": 0,
+      "defense": 2,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Dragon"
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Dagger",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": null
+    },
+    {
+      "type": "weapon",
+      "name": "Fine Blade",
+      "rarity": "RARE",
+      "atk": 6,
+      "defense": 0,
+      "set_name": "Dragon"
     }
   ],
   "consumables": [
@@ -290,7 +330,7 @@
       "name": "Potion",
       "rarity": "COMMON",
       "hp_restore": 15,
-      "quantity": 3
+      "quantity": 4
     },
     {
       "name": "Grand Potion",

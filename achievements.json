@@ -1,31 +1,31 @@
 {
   "unlocked": [
-    "collector",
-    "crit_master",
-    "gold_hoarder",
-    "merchant",
-    "skill_surge",
     "deep_trek",
-    "slayer",
-    "deaths_door",
-    "delver",
-    "novice",
     "set_bonus",
-    "legendary_find",
+    "warrior",
+    "slayer",
+    "delver",
+    "skill_surge",
+    "gold_hoarder",
+    "novice",
+    "crit_master",
     "first_blood",
-    "warrior"
+    "legendary_find",
+    "merchant",
+    "collector",
+    "deaths_door"
   ],
   "counters": {
-    "level_reached": 11,
-    "deepest_floor": 7,
-    "kills": 43,
-    "gold_earned": 1955,
-    "items_found": 58,
-    "crits": 10,
+    "level_reached": 13,
+    "deepest_floor": 8,
+    "kills": 49,
+    "gold_earned": 2380,
+    "items_found": 64,
+    "crits": 15,
     "deaths": 2,
-    "skills_used": 23,
-    "dungeons_completed": 11,
+    "skills_used": 24,
+    "dungeons_completed": 12,
     "legendaries_found": 1,
-    "bleed_applied": 2
+    "bleed_applied": 5
   }
 }
