@@ -4,6 +4,7 @@ Save Manager — handles player progress persistence via JSON.
 
 import json
 import os
+import tempfile
 
 from item import Weapon, Armor, Consumable, Rarity, merge_into_stack
 from skills import PlayerClass, SkillTree
@@ -12,7 +13,7 @@ SAVE_FILE = "save_data.json"
 SETTINGS_FILE = "settings.json"
 
 
-def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
+def save_game(player, snd=None, ach_manager=None, current_floor: int = 1, resume_context: dict | None = None):
     """Save all player progress to JSON."""
     if ach_manager is not None:
         ach_manager.save()
@@ -29,6 +30,11 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
         "sp": player.sp,
         "base_crit": player._base_crit,
         "base_eva": player._eva,
+        "status_effects": player.status_effects,
+        "skill_cooldowns": player.skill_cooldowns,
+        "death_marked": getattr(player, "_death_marked", False),
+        "damage_taken_last_turn": getattr(player, "_damage_taken_last_turn", 0),
+        "conflagration_active": getattr(player, "_conflagration_active", False),
         "current_floor": current_floor,
         "player_class": player.player_class.value if player.player_class else None,
         "chosen_tree": player.chosen_tree.value if player.chosen_tree else None,
@@ -38,17 +44,38 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
         },
         "inventory": [serialize_item(item) for item in player.inventory],
         "consumables": [serialize_consumable(c) for c in player.consumables],
+        "resume_context": resume_context or {"mode": "hub"},
     }
-    with open(SAVE_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    directory = os.path.dirname(os.path.abspath(SAVE_FILE)) or "."
+    fd, tmp_path = tempfile.mkstemp(prefix="save_data.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, SAVE_FILE)
+    except Exception:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def load_game(player):
-    """Load saved progress into the player object. Returns (loaded, current_floor)."""
+    """Load saved progress into the player object. Returns (loaded, current_floor, resume_context)."""
     if not os.path.exists(SAVE_FILE):
-        return False, 1
-    with open(SAVE_FILE) as f:
-        data = json.load(f)
+        return False, 1, {"mode": "hub"}
+    try:
+        with open(SAVE_FILE) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError, ValueError):
+        broken_name = f"{SAVE_FILE}.corrupt"
+        try:
+            if os.path.exists(broken_name):
+                os.remove(broken_name)
+            os.replace(SAVE_FILE, broken_name)
+        except OSError:
+            pass
+        return False, 1, {"mode": "hub"}
 
     player.gold = data.get("gold", 0)
     player.level = data.get("level", 1)
@@ -62,16 +89,27 @@ def load_game(player):
     player.sp = min(data.get("sp", player.max_sp), player.max_sp)
     player._base_crit = data.get("base_crit", getattr(player, "_base_crit", 0.05))
     player._eva = data.get("base_eva", getattr(player, "_eva", 0.05))
+    player.status_effects = data.get("status_effects", [])
+    player.skill_cooldowns = data.get("skill_cooldowns", {})
+    player._death_marked = data.get("death_marked", False)
+    player._damage_taken_last_turn = data.get("damage_taken_last_turn", 0)
+    player._conflagration_active = data.get("conflagration_active", False)
 
     # Class / Tree (backward compatible: default to Warrior + Berserker)
     pc_name = data.get("player_class")
+    needs_default_class_stats = False
     if pc_name:
         try:
             player.player_class = PlayerClass(pc_name)
         except ValueError:
             player.player_class = PlayerClass.WARRIOR
+            needs_default_class_stats = True
     else:
         player.player_class = PlayerClass.WARRIOR
+        needs_default_class_stats = True
+
+    if needs_default_class_stats:
+        player.apply_class_stats(PlayerClass.WARRIOR)
 
     tree_name = data.get("chosen_tree")
     if tree_name:
@@ -97,7 +135,7 @@ def load_game(player):
         if item:
             merge_into_stack(player.consumables, item)
 
-    return True, data.get("current_floor", 1)
+    return True, data.get("current_floor", 1), data.get("resume_context", {"mode": "hub"})
 
 
 def serialize_item(item):
