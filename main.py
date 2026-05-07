@@ -120,6 +120,212 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
     return None
 
 
+def _serialize_room(room: dict | None) -> dict | None:
+    if not room:
+        return None
+    return {
+        "type": room["type"].name,
+        "enemy": room.get("enemy"),
+        "cleared": room.get("cleared", False),
+        "floor": room.get("floor", 1),
+        "flavor": room.get("flavor"),
+    }
+
+
+def _deserialize_room(data: dict | None) -> dict | None:
+    if not data:
+        return None
+    return {
+        "type": RoomType[data["type"]],
+        "enemy": data.get("enemy"),
+        "cleared": data.get("cleared", False),
+        "floor": data.get("floor", 1),
+        "flavor": data.get("flavor"),
+    }
+
+
+def _serialize_loot_item(item):
+    if item is None:
+        return None
+    if isinstance(item, Consumable):
+        return {"kind": "consumable", "data": {
+            "name": item.name,
+            "rarity": item.rarity.name,
+            "hp_restore": item.hp_restore,
+            "quantity": item.quantity,
+        }}
+    return {"kind": "gear", "data": {
+        "type": "weapon" if isinstance(item, Weapon) else "armor",
+        "name": item.name,
+        "rarity": item.rarity.name,
+        "atk": getattr(item, "atk", 0),
+        "defense": getattr(item, "defense", 0),
+        "set_name": getattr(item, "set_name", None),
+    }}
+
+
+def _deserialize_loot_item(data):
+    if not data:
+        return None
+    if data.get("kind") == "consumable":
+        payload = data["data"]
+        item = Consumable(payload["name"], Rarity[payload["rarity"]], payload["hp_restore"])
+        item.quantity = payload.get("quantity", 1)
+        return item
+    payload = data["data"]
+    if payload["type"] == "weapon":
+        item = Weapon(payload["name"], Rarity[payload["rarity"]], payload["atk"])
+    else:
+        item = Armor(payload["name"], Rarity[payload["rarity"]], payload["defense"])
+    if payload.get("set_name"):
+        item.set_name = payload["set_name"]
+    return item
+
+
+def _serialize_skill(skill: dict) -> dict:
+    data = dict(skill)
+    tree = data.get("tree")
+    if hasattr(tree, "value"):
+        data["tree"] = tree.value
+    return data
+
+
+def _serialize_dungeon_run(run: DungeonRun | None) -> dict | None:
+    if run is None:
+        return None
+    return {
+        "floor": run.floor,
+        "biome": run.biome["name"],
+        "rooms": [_serialize_room(room) for room in run.rooms],
+        "room_index": run.room_index,
+        "total_rooms": run.total_rooms,
+        "enemies_defeated": run.enemies_defeated,
+        "total_gold": run.total_gold,
+        "room_transition": run.room_transition,
+        "room_cleared": run.room_cleared,
+        "branching": run.branching,
+        "branch_choices": [_serialize_room(room) for room in run.branch_choices],
+        "blessings": dict(run.blessings),
+    }
+
+
+def _restore_dungeon_run(player, data: dict | None) -> DungeonRun | None:
+    if not data:
+        return None
+    run = DungeonRun(player, floor=data.get("floor", 1))
+    run.rooms = [_deserialize_room(room) for room in data.get("rooms", []) if room]
+    run.room_index = data.get("room_index", 0)
+    run.total_rooms = data.get("total_rooms", len(run.rooms))
+    run.enemies_defeated = data.get("enemies_defeated", 0)
+    run.total_gold = data.get("total_gold", 0)
+    run.room_transition = data.get("room_transition", 0.0)
+    run.room_cleared = data.get("room_cleared", False)
+    run.branching = data.get("branching", False)
+    run.branch_choices = [_deserialize_room(room) for room in data.get("branch_choices", []) if room]
+    run.blessings = dict(data.get("blessings", {}))
+    return run
+
+
+def _serialize_enemy(enemy: Enemy) -> dict:
+    return {
+        "name": enemy.name,
+        "max_hp": enemy.max_hp,
+        "current_hp": enemy.current_hp,
+        "atk": enemy._base_atk,
+        "defn": enemy._base_def,
+        "xp_reward": getattr(enemy, "xp_reward", 0),
+        "gold_min": getattr(enemy, "gold_min", 20),
+        "gold_max": getattr(enemy, "gold_max", 40),
+        "eva": enemy._eva,
+        "status_effects": enemy.status_effects,
+        "skill_cooldowns": enemy.skill_cooldowns,
+    }
+
+
+def _restore_enemy(data: dict) -> Enemy:
+    enemy = Enemy(
+        data["name"],
+        data["max_hp"],
+        data["atk"],
+        data["defn"],
+        data.get("xp_reward", 0),
+        data.get("gold_min", 20),
+        data.get("gold_max", 40),
+    )
+    enemy.current_hp = data.get("current_hp", enemy.max_hp)
+    enemy._eva = data.get("eva", enemy._eva)
+    enemy.status_effects = data.get("status_effects", [])
+    enemy.skill_cooldowns = data.get("skill_cooldowns", {})
+    return enemy
+
+
+def _serialize_combat(combat: CombatManager | None) -> dict | None:
+    if combat is None:
+        return None
+    return {
+        "enemy": _serialize_enemy(combat.enemy),
+        "state": combat.state.name,
+        "log": list(combat._log),
+        "enemy_timer": combat._enemy_timer,
+        "selected_index": combat.selected_index,
+        "sub_selected_index": combat.sub_selected_index,
+        "inv_cursor": combat.inv_cursor,
+        "inv_section": combat.inv_section,
+        "inv_equip_cursor": combat.inv_equip_cursor,
+        "inv_scroll_offset": combat.inv_scroll_offset,
+        "gold_dropped": combat._gold_dropped,
+        "xp_gained": combat._xp_gained,
+        "level_ups": list(combat._level_ups),
+        "victory_phase": combat.victory_phase,
+        "last_hit_info": combat._last_hit_info,
+        "last_status_tick": combat._last_status_tick,
+        "shake_source": combat._shake_source,
+        "player_confused": combat._player_confused,
+        "enemy_turn_count": combat._enemy_turn_count,
+        "boss_phase2_triggered": combat._boss_phase2_triggered,
+        "is_boss": combat.is_boss,
+        "floor": combat.floor,
+        "in_dungeon": combat.in_dungeon,
+        "available_skills": [_serialize_skill(skill) for skill in combat._available_skills],
+    }
+
+
+def _restore_combat(player, snd, ach_manager, data: dict | None) -> CombatManager | None:
+    if not data:
+        return None
+    enemy = _restore_enemy(data["enemy"])
+    combat = CombatManager.__new__(CombatManager)
+    combat.player = player
+    combat.enemy = enemy
+    combat._state = TurnState[data.get("state", "WAIT")]
+    combat._log = list(data.get("log", []))
+    combat._enemy_timer = data.get("enemy_timer", 0)
+    combat._snd = snd
+    combat._ach_manager = ach_manager
+    combat.in_dungeon = data.get("in_dungeon", False)
+    combat.is_boss = data.get("is_boss", False)
+    combat.floor = data.get("floor", 1)
+    combat._selected_index = 0
+    combat.selected_index = data.get("selected_index", 0)
+    combat.sub_selected_index = data.get("sub_selected_index", 0)
+    combat.inv_cursor = data.get("inv_cursor", 0)
+    combat.inv_section = data.get("inv_section", "bag")
+    combat.inv_equip_cursor = data.get("inv_equip_cursor", 0)
+    combat.inv_scroll_offset = data.get("inv_scroll_offset", 0)
+    combat._gold_dropped = data.get("gold_dropped", 0)
+    combat._xp_gained = data.get("xp_gained", 0)
+    combat._level_ups = list(data.get("level_ups", []))
+    combat.victory_phase = data.get("victory_phase", "rewards")
+    combat._last_hit_info = data.get("last_hit_info")
+    combat._last_status_tick = data.get("last_status_tick")
+    combat._shake_source = data.get("shake_source")
+    combat._player_confused = data.get("player_confused", False)
+    combat._enemy_turn_count = data.get("enemy_turn_count", 0)
+    combat._boss_phase2_triggered = data.get("boss_phase2_triggered", False)
+    combat._available_skills = SkillRegistry.get_available_skills(player)
+    return combat
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -156,6 +362,41 @@ def main():
     loot_item = None
     dungeon_sub = ""  # "loot", "rest", "complete", "death", "shop"
 
+    def _build_resume_context():
+        ui_state = {
+            "branch_selection": getattr(dungeon_ui, "branch_selection", 0),
+            "chest_opened": getattr(dungeon_ui, "chest_opened", False),
+            "chest_anim_timer": getattr(dungeon_ui, "chest_anim_timer", 0.0),
+            "chest_sparks": getattr(dungeon_ui, "chest_sparks", []),
+        }
+
+        if state == GameState.BATTLE and combat is not None:
+            return {
+                "mode": "battle",
+                "dungeon_run": _serialize_dungeon_run(dungeon_run),
+                "dungeon_sub": dungeon_sub,
+                "dungeon_ui": ui_state,
+                "loot_item": _serialize_loot_item(loot_item),
+                "combat": _serialize_combat(combat),
+            }
+
+        if state == GameState.DUNGEON_ROOM and dungeon_run is not None:
+            return {
+                "mode": "dungeon_room",
+                "dungeon_run": _serialize_dungeon_run(dungeon_run),
+                "dungeon_sub": dungeon_sub,
+                "dungeon_ui": ui_state,
+                "loot_item": _serialize_loot_item(loot_item),
+            }
+
+        if state == GameState.DUNGEON:
+            return {"mode": "dungeon"}
+
+        return {"mode": "hub"}
+
+    def _save_progress():
+        save_game(player, snd, ach_manager, current_floor, resume_context=_build_resume_context())
+
     running = True
     while running:
         dt_ms = clock.tick(FPS)
@@ -163,7 +404,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 if player is not None:
-                    save_game(player, snd, ach_manager, current_floor)
+                    _save_progress()
                 running = False
 
             elif event.type == pygame.MOUSEWHEEL:
@@ -232,7 +473,7 @@ def main():
                         hub_screen = HubScreen(screen, player, ach_manager, snd)
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd, ach_manager, current_floor)
+                        _save_progress()
                         state = GameState.HUB
 
                 # ── HUB ────────────────────────────────────────────
@@ -265,7 +506,7 @@ def main():
                         elif event.key == pygame.K_ESCAPE:
                             snd.play("menu_back")
                             hub_screen.cancel()
-                            save_game(player, snd, ach_manager, current_floor)
+                            _save_progress()
 
                     elif sub == HubSubState.APOTHECARY:
                         if event.key in (pygame.K_w, pygame.K_UP):
@@ -277,7 +518,7 @@ def main():
                         elif event.key == pygame.K_ESCAPE:
                             snd.play("menu_back")
                             hub_screen.cancel()
-                            save_game(player, snd, ach_manager, current_floor)
+                            _save_progress()
 
                     elif sub == HubSubState.MERCHANT:
                         if event.key in (pygame.K_w, pygame.K_UP):
@@ -289,7 +530,7 @@ def main():
                         elif event.key == pygame.K_ESCAPE:
                             snd.play("menu_back")
                             hub_screen.cancel()
-                            save_game(player, snd, ach_manager, current_floor)
+                            _save_progress()
 
                     elif sub == HubSubState.RETURN_PROMPT:
                         if event.key == pygame.K_y:
@@ -305,7 +546,7 @@ def main():
                     elif sub == HubSubState.TOAST:
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                             hub_screen.cancel()
-                            save_game(player, snd, ach_manager, current_floor)
+                            _save_progress()
 
                     elif sub == HubSubState.ACHIEVEMENTS:
                         if event.key in (pygame.K_w, pygame.K_UP):
@@ -315,7 +556,7 @@ def main():
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
                             snd.play("menu_back")
                             hub_screen.cancel()
-                            save_game(player, snd, ach_manager, current_floor)
+                            _save_progress()
 
                 # ── DUNGEON (floor select) ────────────────────────
                 elif state == GameState.DUNGEON:
@@ -415,7 +656,7 @@ def main():
                                     loot_item = None
                                 dungeon_ui.reset_chest()
                                 dungeon_sub = ""
-                                save_game(player, snd, ach_manager, current_floor)
+                                _save_progress()
                     elif dungeon_sub == "shrine":
                         if event.key == pygame.K_1 and dungeon_run.current:
                             dungeon_run.blessings["might"] = True
@@ -452,7 +693,7 @@ def main():
                         dungeon_sub = ""
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd, ach_manager, current_floor)
+                        _save_progress()
                         state = GameState.HUB
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "death":
                         # Game Over: full restore + floor reset + gold penalty
@@ -464,7 +705,7 @@ def main():
                         player.gold -= lost_gold
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd, ach_manager, current_floor)
+                        _save_progress()
                         state = GameState.HUB
                         dungeon_run = None
                     elif dungeon_sub == "complete" or dungeon_sub == "death":
@@ -500,12 +741,12 @@ def main():
                                     dungeon_run.mark_cleared()
                                     dungeon_sub = ""
                                     snd.play_hub_music()
-                                    save_game(player, snd, ach_manager, current_floor)
+                                    _save_progress()
                                     state = GameState.DUNGEON_ROOM
                                 else:
                                     hub_screen.start_fade_in()
                                     snd.play_hub_music()
-                                    save_game(player, snd, ach_manager, current_floor)
+                                    _save_progress()
                                     state = GameState.HUB
                         elif event.key == pygame.K_r:
                             combat.reset()
@@ -603,15 +844,38 @@ def main():
                 action = title_screen.chosen_action
                 player = Character("Hero", max_hp=100, atk=15, defn=5)
                 if action == "continue":
-                    loaded, current_floor = load_game(player)
+                    loaded, current_floor, resume_context = load_game(player)
                     if not loaded:
                         current_floor = 1
                     ach_manager.load()
-                    hub_screen = HubScreen(screen, player, ach_manager, snd)
-                    hub_screen.start_fade_in()
-                    snd.play_hub_music()
-                    save_game(player, snd, ach_manager, current_floor)
-                    state = GameState.HUB
+                    resume_mode = resume_context.get("mode", "hub")
+                    if resume_mode == "battle":
+                        dungeon_run = _restore_dungeon_run(player, resume_context.get("dungeon_run"))
+                        dungeon_ui.set_run(dungeon_run)
+                        dungeon_ui.reset_chest()
+                        combat = _restore_combat(player, snd, ach_manager, resume_context.get("combat"))
+                        ui = BattleUI(screen)
+                        state = GameState.BATTLE
+                        snd.start_battle_music()
+                    elif resume_mode == "dungeon_room":
+                        dungeon_run = _restore_dungeon_run(player, resume_context.get("dungeon_run"))
+                        dungeon_ui.set_run(dungeon_run)
+                        dungeon_ui.branch_selection = resume_context.get("dungeon_ui", {}).get("branch_selection", 0)
+                        dungeon_ui.chest_opened = resume_context.get("dungeon_ui", {}).get("chest_opened", False)
+                        dungeon_ui.chest_anim_timer = resume_context.get("dungeon_ui", {}).get("chest_anim_timer", 0.0)
+                        dungeon_ui.chest_sparks = resume_context.get("dungeon_ui", {}).get("chest_sparks", [])
+                        loot_item = _deserialize_loot_item(resume_context.get("loot_item"))
+                        hub_screen = None
+                        state = GameState.DUNGEON_ROOM
+                    elif resume_mode == "dungeon":
+                        dungeon_run = None
+                        state = GameState.DUNGEON
+                    else:
+                        hub_screen = HubScreen(screen, player, ach_manager, snd)
+                        hub_screen.start_fade_in()
+                        snd.play_hub_music()
+                        state = GameState.HUB
+                    _save_progress()
                 else:
                     # New Game — delete old save and start fresh
                     if os.path.exists("save_data.json"):
@@ -652,7 +916,7 @@ def main():
                         ach_manager.inc("dungeons_completed")
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
-                        save_game(player, snd, ach_manager, current_floor)
+                        _save_progress()
                         state = GameState.HUB
 
         elif state == GameState.BATTLE and combat is not None:

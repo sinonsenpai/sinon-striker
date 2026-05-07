@@ -142,6 +142,19 @@ class TitleScreen:
     def move_down(self):
         self.selected_index = (self.selected_index + 1) % len(self.menu_options)
 
+    def refresh_save_state(self):
+        """Re-read save-file presence so the menu stays in sync."""
+        has_save = os.path.exists(SAVE_FILE)
+        if has_save == self._has_save:
+            return
+
+        self._has_save = has_save
+        if self._has_save:
+            self.menu_options = ["Continue", "New Game", "Options", "Quit"]
+        else:
+            self.menu_options = ["New Game", "Options", "Quit"]
+        self.selected_index = min(self.selected_index, len(self.menu_options) - 1)
+
     def confirm(self):
         """Returns an action string or None."""
         if self._has_save:
@@ -180,6 +193,7 @@ class TitleScreen:
 
     def update(self, dt_ms: int):
         self._elapsed_ms += dt_ms
+        self.refresh_save_state()
 
         # Stars
         for star in self.stars:

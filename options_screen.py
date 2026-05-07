@@ -77,143 +77,162 @@ class OptionsScreen:
         self._elapsed += dt_ms
 
     def draw(self, dt_ms: int):
-        # Dark gradient background
         self.screen.fill(BG_COLOR)
-        for i in range(self.h):
-            alpha = int(12 + 8 * math.sin(i * 0.005))
-            pygame.draw.line(self.screen, (30 + alpha, 20 + alpha // 2, 55 + alpha),
-                             (0, i), (self.w, i))
+        self._draw_background()
 
-        # Center panel (tight fit for content only, footer goes below)
-        panel_w = 460
-        pad = 25
-        # Calculate height: pad + title(36) + gap(8) + sep(1) + gap(30) + slider(18) + gap(24) +
-        #                   slider(18) + gap(24) + toggle(28) + gap(26) + div(1) + gap(16) + back(36) + pad
-        panel_h = pad + 36 + 8 + 1 + 30 + 18 + 24 + 18 + 24 + 28 + 26 + 1 + 16 + 36 + pad
+        # Main panel
+        panel_w = 500
+        panel_h = 436
         px = (self.w - panel_w) // 2
-        py = (self.h - panel_h) // 2
+        py = (self.h - panel_h) // 2 - 10
+        pad = 24
+
+        self._draw_panel_shadow(px, py, panel_w, panel_h)
 
         panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
-        panel.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 225))
+        panel.fill((12, 10, 24, 232))
         self.screen.blit(panel, (px, py))
-        pygame.draw.rect(self.screen, NEON_CYAN, (px, py, panel_w, panel_h),
-                         width=2, border_radius=8)
+        pygame.draw.rect(self.screen, NEON_CYAN, (px, py, panel_w, panel_h), width=2, border_radius=14)
+        pygame.draw.rect(self.screen, (80, 180, 190), (px + 8, py + 8, panel_w - 16, panel_h - 16), width=1, border_radius=12)
 
-        # Title
+        # Header
         title = self.font_title.render("OPTIONS", True, NEON_CYAN)
-        title_y = py + pad
+        subtitle = self.font_small.render("Audio and accessibility controls", True, DIM_WHITE)
+        title_y = py + 22
         self.screen.blit(title, ((self.w - title.get_width()) // 2, title_y))
+        self.screen.blit(subtitle, ((self.w - subtitle.get_width()) // 2, title_y + title.get_height() + 4))
 
-        # Separator under title
-        sep_y = title_y + title.get_height() + 8
-        pygame.draw.line(self.screen, NEON_CYAN_DIM,
-                         (px + pad, sep_y), (px + panel_w - pad, sep_y), 1)
+        header_line_y = title_y + title.get_height() + subtitle.get_height() + 16
+        pygame.draw.line(self.screen, NEON_CYAN_DIM, (px + pad, header_line_y), (px + panel_w - pad, header_line_y), 1)
 
-        # Layout positions (relative to panel top-left)
-        inner_left = px + pad
-        inner_right = px + panel_w - pad
-        slider_w = 170
-        slider_h = 18
-        pct_w = 40  # reserved width for percentage text
-        slider_x = inner_right - slider_w - pct_w - 10
-        pct_x = inner_right - pct_w
+        # Content cards
+        card_x = px + pad
+        card_w = panel_w - pad * 2
+        row_h = 72
+        gap = 9
+        first_row_y = header_line_y + 16
 
-        # --- SFX Volume ---
-        sfx_y = sep_y + 30
-        selected = self.selected_index == 0
-        self._draw_slider_row("SFX Volume", self.sfx_volume, sfx_y, inner_left, slider_x, slider_w, slider_h, pct_x, selected)
+        self._draw_slider_card(
+            "SFX Volume",
+            self.sfx_volume,
+            first_row_y,
+            card_x,
+            card_w,
+            row_h,
+            selected=self.selected_index == 0,
+        )
+        self._draw_slider_card(
+            "Music Volume",
+            self.music_volume,
+            first_row_y + row_h + gap,
+            card_x,
+            card_w,
+            row_h,
+            selected=self.selected_index == 1,
+        )
+        self._draw_toggle_card(
+            "Mute",
+            self.muted,
+            first_row_y + (row_h + gap) * 2,
+            card_x,
+            card_w,
+            row_h,
+            selected=self.selected_index == 2,
+        )
 
-        # --- Music Volume ---
-        music_y = sfx_y + 24
-        selected = self.selected_index == 1
-        self._draw_slider_row("Music Volume", self.music_volume, music_y, inner_left, slider_x, slider_w, slider_h, pct_x, selected)
-
-        # --- Mute toggle ---
-        mute_y = music_y + 24
-        selected = self.selected_index == 2
-        self._draw_toggle_row("Mute", self.muted, mute_y, inner_left, slider_x, 100, 28, selected)
-
-        # --- Divider between settings and Back ---
-        divider_y = mute_y + 26
-        pygame.draw.line(self.screen, NEON_CYAN_DIM,
-                         (px + pad + 20, divider_y), (px + panel_w - pad - 20, divider_y), 1)
-
-        # --- Back button ---
-        back_y = divider_y + 16
+        # Back button
+        back_y = py + panel_h - 58
         self._draw_back_button(back_y, px, panel_w, pad)
 
-        # Footer text below the panel, not inside it
-        footer_y = py + panel_h + 20
         footer = self.font_hud.render(
             "[W/S or UP/DOWN] Navigate   [LEFT/RIGHT] Adjust   [ENTER/ESC] Back",
-            True, DIM_WHITE)
-        self.screen.blit(footer, ((self.w - footer.get_width()) // 2, footer_y))
+            True,
+            DIM_WHITE,
+        )
+        self.screen.blit(footer, ((self.w - footer.get_width()) // 2, py + panel_h + 18))
 
     # ------------------------------------------------------------------ #
     #  Drawing helpers                                                   #
     # ------------------------------------------------------------------ #
 
-    def _draw_slider_row(self, label, val, y, label_x, slider_x, slider_w, slider_h, pct_x, selected):
-        # Label
+    def _draw_slider_card(self, label, val, y, x, w, h, selected):
+        self._draw_card_base(x, y, w, h, selected)
         label_color = NEON_CYAN if selected else DIM_WHITE
         label_surf = self.font_medium.render(label, True, label_color)
-        self.screen.blit(label_surf, (label_x, y + (slider_h - label_surf.get_height()) // 2))
+        self.screen.blit(label_surf, (x + 16, y + 11))
 
-        fill_w = int(slider_w * val)
-        sy = y + (slider_h - slider_h) // 2  # vertically centered on row
-
-        # Background
-        slider_bg = pygame.Surface((slider_w, slider_h), pygame.SRCALPHA)
-        bg_color = (40, 40, 55, 200) if selected else (30, 30, 40, 200)
-        slider_bg.fill(bg_color)
-        self.screen.blit(slider_bg, (slider_x, sy))
-
-        # Fill (always bright cyan, consistent across both sliders)
-        if fill_w > 0:
-            pygame.draw.rect(self.screen, NEON_CYAN,
-                             (slider_x, sy, fill_w, slider_h), border_radius=3)
-
-        # Border
-        if selected:
-            pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
-            border_alpha = int(150 + 80 * pulse)
-            pygame.draw.rect(self.screen, (*NEON_CYAN, border_alpha),
-                             (slider_x, sy, slider_w, slider_h), width=2, border_radius=3)
-        else:
-            pygame.draw.rect(self.screen, (60, 60, 75),
-                             (slider_x, sy, slider_w, slider_h), width=1, border_radius=3)
-
-        # Handle
-        handle_x = slider_x + fill_w
-        handle_y = sy + slider_h // 2
-        pygame.draw.circle(self.screen, WHITE, (handle_x, handle_y), 4)
-
-        # Percentage (right-aligned at same x)
         pct = int(val * 100)
-        pct_surf = self.font_small.render(f"{pct}%", True, WHITE)
-        self.screen.blit(pct_surf, (pct_x + (40 - pct_surf.get_width()),
-                                      sy + (slider_h - pct_surf.get_height()) // 2))
+        pct_surf = self.font_small.render(f"{pct}%", True, WHITE if selected else DIM_WHITE)
+        pct_x = x + w - pct_surf.get_width() - 18
+        pct_y = y + 14
+        self.screen.blit(pct_surf, (pct_x, pct_y))
+
+        track_x = x + 16
+        track_y = y + 40
+        track_w = w - 32
+        track_h = 16
+        fill_w = max(8, int(track_w * val))
+
+        track = pygame.Surface((track_w, track_h), pygame.SRCALPHA)
+        track.fill((28, 25, 42, 230))
+        self.screen.blit(track, (track_x, track_y))
+        pygame.draw.rect(self.screen, (64, 64, 84), (track_x, track_y, track_w, track_h), width=1, border_radius=8)
+
+        if fill_w > 0:
+            fill = pygame.Surface((fill_w, track_h), pygame.SRCALPHA)
+            fill.fill((0, 240, 255, 220))
+            self.screen.blit(fill, (track_x, track_y))
+
+        thumb_x = track_x + fill_w
+        thumb_y = track_y + track_h // 2
+        pygame.draw.circle(self.screen, (245, 245, 255), (thumb_x, thumb_y), 8)
+        pygame.draw.circle(self.screen, NEON_CYAN if selected else (170, 170, 190), (thumb_x, thumb_y), 8, 2)
+
+    def _draw_toggle_card(self, label, enabled, y, x, w, h, selected):
+        self._draw_card_base(x, y, w, h, selected)
+        label_color = NEON_CYAN if selected else DIM_WHITE
+        label_surf = self.font_medium.render(label, True, label_color)
+        self.screen.blit(label_surf, (x + 16, y + 22))
+
+        switch_w, switch_h = 100, 34
+        switch_x = x + w - switch_w - 16
+        switch_y = y + (h - switch_h) // 2
+        bg_color = (44, 110, 100) if enabled else (56, 38, 48)
+        border_color = NEON_CYAN if selected else (82, 82, 102)
+        pygame.draw.rect(self.screen, bg_color, (switch_x, switch_y, switch_w, switch_h), border_radius=17)
+        pygame.draw.rect(self.screen, border_color, (switch_x, switch_y, switch_w, switch_h), width=2, border_radius=17)
+
+        knob_r = 12
+        knob_x = switch_x + (switch_w - knob_r - 8 if enabled else knob_r + 8)
+        knob_y = switch_y + switch_h // 2
+        pygame.draw.circle(self.screen, WHITE, (knob_x, knob_y), knob_r)
+        pygame.draw.circle(self.screen, (180, 180, 200), (knob_x, knob_y), knob_r, 2)
+
+        state_text = "ON" if enabled else "OFF"
+        state_color = WHITE if enabled else (190, 190, 210)
+        state_surf = self.font_small.render(state_text, True, state_color)
+        state_x = max(x + 16, switch_x - state_surf.get_width() - 14)
+        self.screen.blit(state_surf, (state_x, switch_y + 7))
 
     def _draw_back_button(self, y, px, panel_w, pad):
         selected = self.selected_index == 3
-        btn_w, btn_h = 120, 36
+        btn_w, btn_h = 148, 40
         btn_x = px + (panel_w - btn_w) // 2
 
-        # Button background
         btn_bg = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-        btn_bg.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 180))
+        btn_bg.fill((18, 16, 30, 230))
         self.screen.blit(btn_bg, (btn_x, y))
 
         if selected:
             pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
             border_alpha = int(180 + 60 * pulse)
             pygame.draw.rect(self.screen, (*NEON_CYAN, border_alpha),
-                             (btn_x, y, btn_w, btn_h), width=2, border_radius=6)
-            text = ">  Back  <"
+                             (btn_x, y, btn_w, btn_h), width=2, border_radius=20)
+            text = "Back"
             color = NEON_CYAN
         else:
             pygame.draw.rect(self.screen, (60, 60, 75),
-                             (btn_x, y, btn_w, btn_h), width=1, border_radius=6)
+                             (btn_x, y, btn_w, btn_h), width=1, border_radius=20)
             text = "Back"
             color = DIM_WHITE
 
@@ -221,24 +240,64 @@ class OptionsScreen:
         self.screen.blit(surf, (btn_x + (btn_w - surf.get_width()) // 2,
                                  y + (btn_h - surf.get_height()) // 2))
 
+    def _draw_card_base(self, x, y, w, h, selected):
+        card = pygame.Surface((w, h), pygame.SRCALPHA)
+        card.fill((22, 18, 36, 210))
+        self.screen.blit(card, (x, y))
 
-    def _draw_toggle_row(self, label, enabled, y, label_x, toggle_x, toggle_w, toggle_h, selected):
-        label_color = NEON_CYAN if selected else DIM_WHITE
-        label_surf = self.font_medium.render(label, True, label_color)
-        self.screen.blit(label_surf, (label_x, y + (toggle_h - label_surf.get_height()) // 2))
+        if selected:
+            pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
+            glow = pygame.Surface((w + 16, h + 16), pygame.SRCALPHA)
+            glow.fill((0, 240, 255, int(12 + 20 * pulse)))
+            self.screen.blit(glow, (x - 6, y - 6))
 
-        bg_color = (0, 120, 110) if enabled else (55, 35, 45)
-        border_color = NEON_CYAN if selected else (80, 80, 100)
-        pygame.draw.rect(self.screen, bg_color, (toggle_x, y, toggle_w, toggle_h), border_radius=14)
-        pygame.draw.rect(self.screen, border_color, (toggle_x, y, toggle_w, toggle_h), width=2, border_radius=14)
+            sheen = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.rect(sheen, (255, 255, 255, int(12 + 10 * pulse)), (8, 8, w - 16, 14), border_radius=7)
+            pygame.draw.line(sheen, (255, 255, 255, int(18 + 8 * pulse)), (16, 14), (w - 16, 14), 1)
+            self.screen.blit(sheen, (x, y))
 
-        knob_r = 10
-        knob_x = toggle_x + (toggle_w - knob_r - 4 if enabled else knob_r + 4)
-        knob_y = y + toggle_h // 2
-        pygame.draw.circle(self.screen, WHITE, (knob_x, knob_y), knob_r)
+            pygame.draw.rect(self.screen, NEON_CYAN, (x, y, w, h), width=2, border_radius=12)
+            pygame.draw.rect(self.screen, (160, 250, 255), (x + 2, y + 2, w - 4, h - 4), width=1, border_radius=10)
+        else:
+            pygame.draw.rect(self.screen, (60, 60, 82), (x, y, w, h), width=1, border_radius=12)
 
-        state_surf = self.font_small.render("ON" if enabled else "OFF", True, WHITE)
-        self.screen.blit(state_surf, (toggle_x + toggle_w + 10, y + (toggle_h - state_surf.get_height()) // 2))
+        accent_h = 26
+        accent_color = NEON_CYAN if selected else NEON_CYAN_DIM
+        pygame.draw.rect(self.screen, accent_color, (x + 8, y + 14, 4, accent_h), border_radius=2)
+
+        if selected:
+            # Add a faint diagonal highlight so the active row feels "lit" instead of only outlined.
+            stripe = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                stripe,
+                (0, 240, 255, 18),
+                [(w * 0.18, 0), (w * 0.38, 0), (w * 0.56, h), (w * 0.36, h)],
+            )
+            self.screen.blit(stripe, (x, y))
+
+    def _draw_background(self):
+        for i in range(self.h):
+            t = i / max(1, self.h - 1)
+            r = int(14 + 18 * t)
+            g = int(12 + 10 * t)
+            b = int(26 + 22 * t)
+            pygame.draw.line(self.screen, (r, g, b), (0, i), (self.w, i))
+
+        pulses = [
+            (self.w * 0.18, self.h * 0.2, 130, (0, 240, 255)),
+            (self.w * 0.82, self.h * 0.74, 170, (255, 215, 0)),
+            (self.w * 0.5, self.h * 0.48, 220, (120, 80, 255)),
+        ]
+        for cx, cy, radius, color in pulses:
+            glow = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow, (*color, 28), (radius, radius), radius)
+            pygame.draw.circle(glow, (*color, 14), (radius, radius), int(radius * 0.72))
+            self.screen.blit(glow, (int(cx - radius), int(cy - radius)))
+
+    def _draw_panel_shadow(self, px, py, w, h):
+        shadow = pygame.Surface((w + 28, h + 28), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 120), (14, 14, w, h), border_radius=18)
+        self.screen.blit(shadow, (px - 14, py - 14))
 
     def _save_settings(self):
         """Write current volumes to a JSON file."""
