@@ -24,6 +24,11 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1):
         "base_atk": player._base_atk,
         "base_def": player._base_def,
         "max_hp": player.max_hp,
+        "current_hp": player.current_hp,
+        "max_sp": player.max_sp,
+        "sp": player.sp,
+        "base_crit": player._base_crit,
+        "base_eva": player._eva,
         "current_floor": current_floor,
         "player_class": player.player_class.value if player.player_class else None,
         "chosen_tree": player.chosen_tree.value if player.chosen_tree else None,
@@ -52,7 +57,11 @@ def load_game(player):
     player._base_atk = data.get("base_atk", 15)
     player._base_def = data.get("base_def", 5)
     player.max_hp = data.get("max_hp", 100)
-    player.current_hp = player.max_hp
+    player.current_hp = data.get("current_hp", player.max_hp)
+    player.max_sp = data.get("max_sp", getattr(player, "max_sp", 50))
+    player.sp = min(data.get("sp", player.max_sp), player.max_sp)
+    player._base_crit = data.get("base_crit", getattr(player, "_base_crit", 0.05))
+    player._eva = data.get("base_eva", getattr(player, "_eva", 0.05))
 
     # Class / Tree (backward compatible: default to Warrior + Berserker)
     pc_name = data.get("player_class")
