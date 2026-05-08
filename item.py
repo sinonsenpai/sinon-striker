@@ -17,6 +17,8 @@ class Rarity(Enum):
 class ItemSlot(Enum):
     WEAPON = auto()
     ARMOR = auto()
+    RING = auto()
+    AMULET = auto()
 
 
 RARITY_WEIGHTS = {
@@ -74,6 +76,20 @@ ARMOR_NAMES = [
     "Robe",
     "Hauberk",
     "Lamellar",
+]
+
+RING_NAMES = [
+    "Band",
+    "Loop",
+    "Signet",
+    "Circlet",
+]
+
+AMULET_NAMES = [
+    "Charm",
+    "Pendant",
+    "Talisman",
+    "Locket",
 ]
 
 WEAPON_BASE_ATK = 3
@@ -154,6 +170,32 @@ class Armor(Item):
         self.set_name = set_name
 
 
+class Ring(Item):
+    """A ring item that provides accuracy and crit bonuses."""
+
+    def __init__(self, name: str, rarity: Rarity, acc: float = 0.0, crit: float = 0.0, set_name: str = None):
+        stat_modifier = {}
+        if acc:
+            stat_modifier["acc"] = acc
+        if crit:
+            stat_modifier["crit"] = crit
+        super().__init__(name, rarity, ItemSlot.RING, stat_modifier)
+        self.set_name = set_name
+
+
+class Amulet(Item):
+    """An amulet item that provides SP and evasion bonuses."""
+
+    def __init__(self, name: str, rarity: Rarity, sp: int = 0, eva: float = 0.0, set_name: str = None):
+        stat_modifier = {}
+        if sp:
+            stat_modifier["sp"] = sp
+        if eva:
+            stat_modifier["eva"] = eva
+        super().__init__(name, rarity, ItemSlot.AMULET, stat_modifier)
+        self.set_name = set_name
+
+
 class Consumable:
     """A consumable item usable once in battle (not equippable)."""
 
@@ -210,20 +252,30 @@ class LootGenerator:
         rarity = LootGenerator._roll_rarity(floor)
         multiplier = RARITY_STAT_MULTIPLIER[rarity]
 
-        # 60% weapon, 28% armor, 12% consumable
+        # 52% weapon, 26% armor, 8% ring, 7% amulet, 7% consumable
         roll = random.random()
-        if roll < 0.60:
+        if roll < 0.52:
             name = RARITY_PREFIX[rarity] + random.choice(WEAPON_NAMES)
             atk = WEAPON_BASE_ATK * multiplier
             acc = RARITY_ACC_BONUS[rarity]
             set_name = LootGenerator._get_set_name(name)
             return Weapon(name, rarity, atk, set_name, acc=acc)
-        elif roll < 0.88:
+        elif roll < 0.78:
             name = RARITY_PREFIX[rarity] + random.choice(ARMOR_NAMES)
             defense = ARMOR_BASE_DEF * multiplier
             eva = RARITY_EVA_BONUS[rarity]
             set_name = LootGenerator._get_set_name(name)
             return Armor(name, rarity, defense, set_name, eva=eva)
+        elif roll < 0.86:
+            name = RARITY_PREFIX[rarity] + random.choice(RING_NAMES)
+            acc = 0.01 * multiplier
+            crit = 0.01 * multiplier
+            return Ring(name, rarity, acc=acc, crit=crit)
+        elif roll < 0.93:
+            name = RARITY_PREFIX[rarity] + random.choice(AMULET_NAMES)
+            sp = 4 * multiplier
+            eva = 0.005 * multiplier
+            return Amulet(name, rarity, sp=sp, eva=eva)
         else:
             hp_restore = POTION_BASE_HP * multiplier
             name = RARITY_PREFIX[rarity] + "Potion"

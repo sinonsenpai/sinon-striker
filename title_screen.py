@@ -7,6 +7,7 @@ import random
 import sys
 import os
 import pygame
+from save_manager import get_save_snapshot
 
 BG_COLOR = (18, 14, 30)
 NEON_CYAN = (0, 240, 255)
@@ -111,11 +112,10 @@ class TitleScreen:
         self.font_hint = pygame.font.SysFont("arial", 15, bold=False)
 
         # ── Menu ──
-        self._has_save = os.path.exists(SAVE_FILE)
-        if self._has_save:
-            self.menu_options = ["Continue", "New Game", "Options", "Quit"]
-        else:
-            self.menu_options = ["New Game", "Options", "Quit"]
+        self._save_snapshot = get_save_snapshot()
+        self._has_save = bool(self._save_snapshot)
+        self._ng_plus_unlocked = bool(self._save_snapshot.get("ng_plus_unlocked", False))
+        self._refresh_menu_options()
         self.selected_index = 0
         self.cursor_icon = ">"
         self._chosen_action = None  # "continue" or "new_game"
@@ -144,32 +144,40 @@ class TitleScreen:
 
     def refresh_save_state(self):
         """Re-read save-file presence so the menu stays in sync."""
-        has_save = os.path.exists(SAVE_FILE)
-        if has_save == self._has_save:
-            return
+        self._save_snapshot = get_save_snapshot()
+        self._has_save = bool(self._save_snapshot)
+        self._ng_plus_unlocked = bool(self._save_snapshot.get("ng_plus_unlocked", False))
+        self._refresh_menu_options()
+        self.selected_index = min(self.selected_index, len(self.menu_options) - 1)
 
-        self._has_save = has_save
+    def _refresh_menu_options(self):
         if self._has_save:
-            self.menu_options = ["Continue", "New Game", "Options", "Quit"]
+            if self._ng_plus_unlocked:
+                self.menu_options = ["Continue", "New Game Plus", "New Game", "Options", "Quit"]
+            else:
+                self.menu_options = ["Continue", "New Game", "Options", "Quit"]
         else:
             self.menu_options = ["New Game", "Options", "Quit"]
-        self.selected_index = min(self.selected_index, len(self.menu_options) - 1)
 
     def confirm(self):
         """Returns an action string or None."""
         if self._has_save:
-            # Menu: Continue, New Game, Options, Quit
+            # Menu: Continue, New Game Plus, New Game, Options, Quit
             if self.selected_index == 0:
                 self._start_fade(255, 0.52)
                 self._chosen_action = "continue"
                 return "continue"
-            elif self.selected_index == 1:
+            elif self._ng_plus_unlocked and self.selected_index == 1:
+                self._start_fade(255, 0.52)
+                self._chosen_action = "new_game_plus"
+                return "new_game_plus"
+            elif (self._ng_plus_unlocked and self.selected_index == 2) or (not self._ng_plus_unlocked and self.selected_index == 1):
                 self._start_fade(255, 0.52)
                 self._chosen_action = "new_game"
                 return "new_game"
-            elif self.selected_index == 2:
+            elif (self._ng_plus_unlocked and self.selected_index == 3) or (not self._ng_plus_unlocked and self.selected_index == 2):
                 return "options"
-            elif self.selected_index == 3:
+            elif (self._ng_plus_unlocked and self.selected_index == 4) or (not self._ng_plus_unlocked and self.selected_index == 3):
                 pygame.quit()
                 sys.exit()
         else:
@@ -224,7 +232,7 @@ class TitleScreen:
 
     @property
     def chosen_action(self) -> str:
-        """Returns 'continue' or 'new_game' after confirm()."""
+        """Returns the selected action after confirm()."""
         return self._chosen_action
 
     def start_fade_in(self):
@@ -293,10 +301,10 @@ class TitleScreen:
         self.screen.blit(sub_surf, ((self.w - sub_surf.get_width()) // 2, sub_y))
 
         # ── Menu options ──
-        menu_start_y = int(self.h * 0.55)
-        spacing = 42
-        menu_w = 260
-        menu_h = 38
+        menu_start_y = int(self.h * 0.54)
+        spacing = 48
+        menu_w = 300
+        menu_h = 42
 
         for i, option in enumerate(self.menu_options):
             opt_y = menu_start_y + i * spacing
@@ -332,7 +340,7 @@ class TitleScreen:
                               menu_start_y + len(self.menu_options) * spacing + 15))
 
         # ── Hint ──
-        hint = self.font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER or SPACE] Select", True, (90, 90, 115))
+        hint = self.font_hint.render("[W/S or arrows] Navigate   [ENTER/SPACE] Select", True, (90, 90, 115))
         self.screen.blit(hint, ((self.w - hint.get_width()) // 2, self.h - 30))
 
         # ── Fade overlay ──

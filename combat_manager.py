@@ -46,7 +46,7 @@ class CombatManager:
 
     ENEMY_DELAY_MS = 1000
 
-    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None, is_boss: bool = False, floor: int = 1):
+    def __init__(self, player: Character, enemy: Enemy, sound_manager=None, ach_manager=None, is_boss: bool = False, floor: int = 1, quest_manager=None, bestiary_manager=None):
         self.player = player
         self.enemy = enemy
         self._state = TurnState.WAIT
@@ -54,6 +54,8 @@ class CombatManager:
         self._enemy_timer: int = 0
         self._snd = sound_manager
         self._ach_manager = ach_manager
+        self._quest_manager = quest_manager
+        self._bestiary_manager = bestiary_manager
         self.in_dungeon = False  # set True when in a dungeon run
         self.is_boss = is_boss
         self.floor = floor
@@ -267,7 +269,7 @@ class CombatManager:
             if self.inv_cursor < self.inv_scroll_offset:
                 self.inv_scroll_offset = self.inv_cursor
         elif self.inv_section == "equipped":
-            self.inv_equip_cursor = (self.inv_equip_cursor - 1) % 2
+            self.inv_equip_cursor = (self.inv_equip_cursor - 1) % 4
 
     def move_inv_down(self):
         """Move the inventory cursor down."""
@@ -276,7 +278,7 @@ class CombatManager:
         if self.inv_section == "bag" and self.player.inventory:
             self.inv_cursor = (self.inv_cursor + 1) % len(self.player.inventory)
         elif self.inv_section == "equipped":
-            self.inv_equip_cursor = (self.inv_equip_cursor + 1) % 2
+            self.inv_equip_cursor = (self.inv_equip_cursor + 1) % 4
 
     def toggle_inv_section(self):
         """Switch between equipped and bag sections in inventory."""
@@ -326,7 +328,7 @@ class CombatManager:
             return
 
         if self.inv_section == "equipped":
-            slot_key = "weapon" if self.inv_equip_cursor == 0 else "armor"
+            slot_key = ["weapon", "armor", "ring", "amulet"][self.inv_equip_cursor]
             old_item = self.player.unequip_slot(slot_key)
             if old_item is not None:
                 self.player.inventory.append(old_item)
@@ -335,7 +337,12 @@ class CombatManager:
             if not self.player.inventory:
                 return
             item = self.player.inventory[self.inv_cursor]
-            slot_key = "weapon" if item.slot == ItemSlot.WEAPON else "armor"
+            slot_key = {
+                ItemSlot.WEAPON: "weapon",
+                ItemSlot.ARMOR: "armor",
+                ItemSlot.RING: "ring",
+                ItemSlot.AMULET: "amulet",
+            }.get(item.slot, "weapon")
             old_item = self.player.unequip_slot(slot_key)
             if old_item is not None:
                 self.player.inventory.append(old_item)
@@ -392,6 +399,7 @@ class CombatManager:
                 self._sfx("skill")
                 self._shake_source = "player"
                 if not self.enemy.is_alive:
+                    self._mark_victory_progress()
                     if self._ach_manager:
                         self._ach_manager.inc("kills")
                     self._award_xp()
@@ -563,6 +571,7 @@ class CombatManager:
         self.player._damage_taken_last_turn = 0
 
         if not self.enemy.is_alive:
+            self._mark_victory_progress()
             if self._ach_manager:
                 self._ach_manager.inc("kills")
             self._award_xp()
@@ -599,12 +608,20 @@ class CombatManager:
             merge_into_stack(self.player.consumables, item)
         else:
             self.player.inventory.append(item)
+        if self._quest_manager:
+            self._quest_manager.record_item_found(item)
         if self._ach_manager:
             self._ach_manager.inc("items_found")
             if getattr(item, "rarity", None) and item.rarity.name == "LEGENDARY":
                 self._ach_manager.inc("legendaries_found")
         self._sfx("loot_drop")
         self._add_log(f"Dropped: {item}!")
+
+    def _mark_victory_progress(self):
+        if self._quest_manager:
+            self._quest_manager.record_kill(self.enemy.name, is_boss=self.is_boss)
+        if self._bestiary_manager:
+            self._bestiary_manager.record_kill(self.enemy.name)
 
     def _award_xp(self):
         """Grant XP for defeating the enemy and track level-ups."""
@@ -702,6 +719,7 @@ class CombatManager:
                 self._add_log(f"Regen heals {self.enemy.name} for {msg[1]} HP!")
 
         if not self.enemy.is_alive:
+            self._mark_victory_progress()
             if self._ach_manager:
                 self._ach_manager.inc("kills")
             self._award_xp()
@@ -768,6 +786,7 @@ class CombatManager:
         self._shake_source = "player"
 
         if not self.enemy.is_alive:
+            self._mark_victory_progress()
             if self._ach_manager:
                 self._ach_manager.inc("kills")
             self._award_xp()
@@ -803,6 +822,7 @@ class CombatManager:
             if self._ach_manager:
                 self._ach_manager.unlock("confuse_self_hit")
             if not self.enemy.is_alive:
+                self._mark_victory_progress()
                 if self._ach_manager:
                     self._ach_manager.inc("kills")
                 self._award_xp()

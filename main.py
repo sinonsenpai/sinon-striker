@@ -6,6 +6,7 @@ import sys
 import os
 import random
 import pygame
+import achievements
 
 from character import Character, Enemy
 from combat_manager import CombatManager, TurnState
@@ -20,6 +21,8 @@ from enum import Enum, auto
 from save_manager import save_game, load_game
 from achievements import AchievementManager, AchievementToast
 from skills import SkillRegistry, PlayerClass, SkillTree
+from bestiary import BestiaryManager
+from quests import QuestManager
 
 
 class GameState(Enum):
@@ -46,7 +49,7 @@ def _trigger_title_burst(title, event):
     title.trigger_burst(x, y)
 
 
-def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
+def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None, bestiary_manager=None, quest_manager=None):
     """Process the current dungeon room and return next state or None."""
     room = dungeon.current
     if not room:
@@ -57,9 +60,18 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
     if rtype == RoomType.COMBAT or rtype == RoomType.ELITE or rtype == RoomType.BOSS:
         # Create enemy and go to battle
         enemy_data = ENEMY_POOL.get(room["enemy"], ENEMY_POOL["slime"])
+        if bestiary_manager and room.get("enemy"):
+            bestiary_manager.encounter(room["enemy"], room.get("floor", 1))
         if "floor" in room:
             from dungeon import scale_enemy
             enemy_data = scale_enemy(enemy_data, room["floor"])
+            if getattr(dungeon, "ng_plus", False):
+                enemy_data = dict(enemy_data)
+                for key in ("hp", "atk", "defn"):
+                    enemy_data[key] = int(enemy_data[key] * 1.5)
+                enemy_data["gold_min"] = int(enemy_data["gold_min"] * 1.5)
+                enemy_data["gold_max"] = int(enemy_data["gold_max"] * 1.5)
+                enemy_data["xp_reward"] = int(enemy_data["xp_reward"] * 1.5)
         enemy = Enemy(
             enemy_data["name"], enemy_data["hp"], enemy_data["atk"], enemy_data["defn"],
             enemy_data.get("xp_reward", 0),
@@ -69,7 +81,16 @@ def _handle_room(player, dungeon, dungeon_ui, snd, ach_manager=None):
         is_boss = rtype == RoomType.BOSS
         # Sync run blessings to player for this combat
         player.run_blessings = dict(dungeon.blessings) if hasattr(dungeon, 'blessings') else {}
-        combat = CombatManager(player, enemy, snd, ach_manager, is_boss=is_boss, floor=room.get("floor", 1))
+        combat = CombatManager(
+            player,
+            enemy,
+            snd,
+            ach_manager,
+            is_boss=is_boss,
+            floor=room.get("floor", 1),
+            quest_manager=quest_manager,
+            bestiary_manager=bestiary_manager,
+        )
         combat.in_dungeon = True
         combat._apply_blessings()
         return ("battle", combat)
@@ -201,23 +222,26 @@ def _serialize_dungeon_run(run: DungeonRun | None) -> dict | None:
         "total_rooms": run.total_rooms,
         "enemies_defeated": run.enemies_defeated,
         "total_gold": run.total_gold,
+        "elapsed_ms": getattr(run, "elapsed_ms", 0),
         "room_transition": run.room_transition,
         "room_cleared": run.room_cleared,
         "branching": run.branching,
         "branch_choices": [_serialize_room(room) for room in run.branch_choices],
         "blessings": dict(run.blessings),
+        "ng_plus": getattr(run, "ng_plus", False),
     }
 
 
 def _restore_dungeon_run(player, data: dict | None) -> DungeonRun | None:
     if not data:
         return None
-    run = DungeonRun(player, floor=data.get("floor", 1))
+    run = DungeonRun(player, floor=data.get("floor", 1), ng_plus=data.get("ng_plus", False))
     run.rooms = [_deserialize_room(room) for room in data.get("rooms", []) if room]
     run.room_index = data.get("room_index", 0)
     run.total_rooms = data.get("total_rooms", len(run.rooms))
     run.enemies_defeated = data.get("enemies_defeated", 0)
     run.total_gold = data.get("total_gold", 0)
+    run.elapsed_ms = data.get("elapsed_ms", 0)
     run.room_transition = data.get("room_transition", 0.0)
     run.room_cleared = data.get("room_cleared", False)
     run.branching = data.get("branching", False)
@@ -290,7 +314,7 @@ def _serialize_combat(combat: CombatManager | None) -> dict | None:
     }
 
 
-def _restore_combat(player, snd, ach_manager, data: dict | None) -> CombatManager | None:
+def _restore_combat(player, snd, ach_manager, data: dict | None, quest_manager=None, bestiary_manager=None) -> CombatManager | None:
     if not data:
         return None
     enemy = _restore_enemy(data["enemy"])
@@ -302,6 +326,8 @@ def _restore_combat(player, snd, ach_manager, data: dict | None) -> CombatManage
     combat._enemy_timer = data.get("enemy_timer", 0)
     combat._snd = snd
     combat._ach_manager = ach_manager
+    combat._quest_manager = quest_manager
+    combat._bestiary_manager = bestiary_manager
     combat.in_dungeon = data.get("in_dungeon", False)
     combat.is_boss = data.get("is_boss", False)
     combat.floor = data.get("floor", 1)
@@ -339,6 +365,10 @@ def main():
     ach_manager = AchievementManager()
     ach_manager.load()
     ach_toast = AchievementToast(WIDTH)
+
+    bestiary_manager = BestiaryManager()
+    quest_manager = QuestManager()
+    ng_plus_unlocked = False
 
     state = GameState.TITLE
     title_screen = TitleScreen(screen)
@@ -395,7 +425,59 @@ def main():
         return {"mode": "hub"}
 
     def _save_progress():
-        save_game(player, snd, ach_manager, current_floor, resume_context=_build_resume_context())
+        save_game(
+            player,
+            snd,
+            ach_manager,
+            current_floor,
+            resume_context=_build_resume_context(),
+            bestiary_manager=bestiary_manager,
+            quest_manager=quest_manager,
+            ng_plus_unlocked=ng_plus_unlocked,
+            ng_plus_active=getattr(player, "ng_plus_active", False),
+        )
+
+    def _load_meta_from_context(meta_context: dict):
+        nonlocal bestiary_manager, quest_manager, ng_plus_unlocked
+        bestiary_manager = BestiaryManager()
+        bestiary_manager.load_from_dict(meta_context.get("bestiary", {}))
+        quest_manager = QuestManager()
+        quest_manager.load_from_dict(meta_context.get("quests", {}))
+        ng_plus_unlocked = meta_context.get("ng_plus_unlocked", False)
+
+    def _start_new_game_plus(meta_context: dict):
+        nonlocal player, current_floor, hub_screen, dungeon_run, dungeon_sub, loot_item, combat, ui, state
+        saved_class = player.player_class
+        saved_tree = player.chosen_tree
+        saved_gold = player.gold
+        _load_meta_from_context(meta_context)
+
+        player = Character("Hero", max_hp=100, atk=15, defn=5)
+        player.apply_class_stats(saved_class)
+        player.chosen_tree = saved_tree
+        player.gold = max(0, int(saved_gold * 0.15))
+        player.xp = 0
+        player.level = 1
+        player.xp_to_next = 50
+        player.inventory = []
+        player.consumables = []
+        player.skill_cooldowns = {}
+        player.status_effects = []
+        player._death_marked = False
+        player._damage_taken_last_turn = 0
+        player._conflagration_active = False
+        player.ng_plus_active = True
+        current_floor = 1
+        dungeon_run = None
+        dungeon_sub = ""
+        loot_item = None
+        combat = None
+        ui = None
+        hub_screen = HubScreen(screen, player, ach_manager, snd, bestiary_manager, quest_manager, ng_plus_unlocked=True)
+        hub_screen.start_fade_in()
+        snd.play_hub_music()
+        state = GameState.HUB
+        _save_progress()
 
     running = True
     while running:
@@ -470,7 +552,7 @@ def main():
                         tree_idx = (tree_idx + 1) % len(trees)
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         player.chosen_tree = trees[tree_idx]
-                        hub_screen = HubScreen(screen, player, ach_manager, snd)
+                        hub_screen = HubScreen(screen, player, ach_manager, snd, bestiary_manager, quest_manager, ng_plus_unlocked)
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         _save_progress()
@@ -500,9 +582,14 @@ def main():
                         elif event.key in (pygame.K_s, pygame.K_DOWN):
                             hub_screen.smithy_move_down()
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                            hub_screen.smithy_sell()
+                            if hub_screen._smithy_mode == "sell":
+                                hub_screen.smithy_sell()
+                            else:
+                                hub_screen.smithy_upgrade()
                         elif event.key == pygame.K_f:
                             hub_screen.smithy_sort()
+                        elif event.key == pygame.K_TAB:
+                            hub_screen.smithy_toggle_mode()
                         elif event.key == pygame.K_ESCAPE:
                             snd.play("menu_back")
                             hub_screen.cancel()
@@ -527,6 +614,22 @@ def main():
                             hub_screen.merchant_move_down()
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             hub_screen.merchant_buy()
+                        elif event.key == pygame.K_ESCAPE:
+                            snd.play("menu_back")
+                            hub_screen.cancel()
+                            _save_progress()
+
+                    elif sub == HubSubState.GUILD_HALL:
+                        if event.key in (pygame.K_a, pygame.K_LEFT):
+                            hub_screen.guild_move_left()
+                        elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                            hub_screen.guild_move_right()
+                        elif event.key in (pygame.K_w, pygame.K_UP):
+                            hub_screen.guild_move_up()
+                        elif event.key in (pygame.K_s, pygame.K_DOWN):
+                            hub_screen.guild_move_down()
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            hub_screen.guild_confirm()
                         elif event.key == pygame.K_ESCAPE:
                             snd.play("menu_back")
                             hub_screen.cancel()
@@ -561,7 +664,7 @@ def main():
                 # ── DUNGEON (floor select) ────────────────────────
                 elif state == GameState.DUNGEON:
                     if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        dungeon_run = DungeonRun(player, floor=current_floor)
+                        dungeon_run = DungeonRun(player, floor=current_floor, ng_plus=getattr(player, "ng_plus_active", False))
                         ach_manager.set("deepest_floor", max(ach_manager.counters.get("deepest_floor", 0), dungeon_run.floor))
                         dungeon_ui.set_run(dungeon_run)
                         dungeon_sub = ""
@@ -571,7 +674,7 @@ def main():
                         state = GameState.HUB
                     elif event.key == pygame.K_F3:
                         # DEV: Jump straight to a loot room
-                        dungeon_run = DungeonRun(player, floor=current_floor)
+                        dungeon_run = DungeonRun(player, floor=current_floor, ng_plus=getattr(player, "ng_plus_active", False))
                         dungeon_run.rooms = [
                             {"type": RoomType.LOOT, "enemy": None, "cleared": False},
                             {"type": RoomType.EXIT, "enemy": None, "cleared": False},
@@ -601,7 +704,7 @@ def main():
                         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                             pass  # ignore, overlay still playing
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "":
-                        result = _handle_room(player, dungeon_run, dungeon_ui, snd, ach_manager)
+                        result = _handle_room(player, dungeon_run, dungeon_ui, snd, ach_manager, bestiary_manager, quest_manager)
                         if result == "rest":
                             dungeon_sub = "rest"
                         elif result == "shop":
@@ -650,6 +753,8 @@ def main():
                                         merge_into_stack(player.consumables, loot_item)
                                     else:
                                         player.inventory.append(loot_item)
+                                    if quest_manager:
+                                        quest_manager.record_item_found(loot_item)
                                     ach_manager.inc("items_found")
                                     if getattr(loot_item, "rarity", None) and loot_item.rarity.name == "LEGENDARY":
                                         ach_manager.inc("legendaries_found")
@@ -686,6 +791,17 @@ def main():
                     elif event.key == pygame.K_ESCAPE and dungeon_sub == "complete":
                         pass
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE) and dungeon_sub == "complete":
+                        if quest_manager and dungeon_run is not None:
+                            quest_manager.record_floor(dungeon_run.floor)
+                        if dungeon_run is not None:
+                            if dungeon_run.elapsed_ms and dungeon_run.elapsed_ms <= 120000:
+                                ach_manager.inc("speed_runs")
+                            if dungeon_run.enemies_defeated == 0:
+                                ach_manager.inc("pacifist_floors")
+                            if getattr(player, "ng_plus_active", False) and dungeon_run.floor >= 10:
+                                ach_manager.inc("ngplus_floor")
+                            if dungeon_run.floor >= 10:
+                                ng_plus_unlocked = True
                         current_floor = dungeon_run.floor + 1
                         # SP regen per floor
                         player.sp = min(player.max_sp, player.sp + 10)
@@ -718,6 +834,8 @@ def main():
                     elif event.key in (pygame.K_PAGEDOWN, pygame.K_END):
                         if ui is not None:
                             ui.scroll_log_down()
+                    elif event.key == pygame.K_l and ui is not None:
+                        ui.toggle_log_overlay()
 
                     if combat.state == TurnState.VICTORY:
                         if event.key in (pygame.K_RETURN, pygame.K_ESCAPE):
@@ -842,18 +960,21 @@ def main():
             title_screen.update(dt_ms)
             if title_screen.fade_done:
                 action = title_screen.chosen_action
-                player = Character("Hero", max_hp=100, atk=15, defn=5)
                 if action == "continue":
-                    loaded, current_floor, resume_context = load_game(player)
+                    player = Character("Hero", max_hp=100, atk=15, defn=5)
+                    loaded, current_floor, resume_context, meta_context = load_game(player)
                     if not loaded:
                         current_floor = 1
+                        meta_context = {}
                     ach_manager.load()
+                    _load_meta_from_context(meta_context)
+                    player.ng_plus_active = meta_context.get("ng_plus_active", False)
                     resume_mode = resume_context.get("mode", "hub")
                     if resume_mode == "battle":
                         dungeon_run = _restore_dungeon_run(player, resume_context.get("dungeon_run"))
                         dungeon_ui.set_run(dungeon_run)
                         dungeon_ui.reset_chest()
-                        combat = _restore_combat(player, snd, ach_manager, resume_context.get("combat"))
+                        combat = _restore_combat(player, snd, ach_manager, resume_context.get("combat"), quest_manager, bestiary_manager)
                         ui = BattleUI(screen)
                         state = GameState.BATTLE
                         snd.start_battle_music()
@@ -871,11 +992,22 @@ def main():
                         dungeon_run = None
                         state = GameState.DUNGEON
                     else:
-                        hub_screen = HubScreen(screen, player, ach_manager, snd)
+                        hub_screen = HubScreen(screen, player, ach_manager, snd, bestiary_manager, quest_manager, ng_plus_unlocked)
                         hub_screen.start_fade_in()
                         snd.play_hub_music()
                         state = GameState.HUB
                     _save_progress()
+                elif action == "new_game_plus":
+                    player = Character("Hero", max_hp=100, atk=15, defn=5)
+                    loaded, current_floor, resume_context, meta_context = load_game(player)
+                    if not loaded:
+                        current_floor = 1
+                        hub_screen = HubScreen(screen, player, ach_manager, snd, bestiary_manager, quest_manager, ng_plus_unlocked)
+                        hub_screen.start_fade_in()
+                        snd.play_hub_music()
+                        state = GameState.HUB
+                    else:
+                        _start_new_game_plus(meta_context)
                 else:
                     # New Game — delete old save and start fresh
                     if os.path.exists("save_data.json"):
@@ -883,6 +1015,9 @@ def main():
                     if os.path.exists("achievements.json"):
                         os.remove("achievements.json")
                     ach_manager.reset()
+                    bestiary_manager = BestiaryManager()
+                    quest_manager = QuestManager()
+                    ng_plus_unlocked = False
                     current_floor = 1
                     class_idx = 0
                     state = GameState.CLASS_SELECT
@@ -927,6 +1062,10 @@ def main():
         # ── Achievement checks ────────────────────────────────────
         if player is not None:
             ach_manager.set("level_reached", player.level)
+            if quest_manager:
+                ach_manager.set("quests_completed", quest_manager.completed_quests)
+            if bestiary_manager and bestiary_manager.is_complete():
+                ach_manager.unlock("librarian")
             # Tourist: track visited biomes
             if dungeon_run is not None:
                 biome_name = dungeon_run.biome["name"]
@@ -948,6 +1087,11 @@ def main():
                     ach_manager.set("level_mage", player.level)
                 elif pc == PlayerClass.ROGUE:
                     ach_manager.set("level_rogue", player.level)
+            if player.equipment.get("ring") and player.equipment.get("amulet"):
+                ach_manager.unlock("accessorized")
+            all_other_achievements = [ach for ach in achievements.ACHIEVEMENT_DEFS if ach["id"] != "completionist"]
+            if all(ach["id"] in ach_manager.unlocked for ach in all_other_achievements):
+                ach_manager.unlock("completionist")
             # Scholar: check if player has unlocked all 8 skills
             available = SkillRegistry.get_available_skills(player)
             if len(available) >= 8:
@@ -1076,7 +1220,7 @@ def _draw_class_select(screen, class_idx, dt_ms):
         desc_text = font_desc.render(descs[pc], True, (140, 140, 165))
         screen.blit(desc_text, (btn_rect.x + 12, btn_rect.y + 54))
 
-    hint = font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER] Confirm", True, (100, 100, 130))
+    hint = font_hint.render("[W/S or arrows] Navigate   [ENTER] Confirm", True, (100, 100, 130))
     screen.blit(hint, ((w - hint.get_width()) // 2, py + panel_h + 14))
 
 
@@ -1133,7 +1277,7 @@ def _draw_tree_select(screen, selected_class, tree_idx, dt_ms):
         desc_text = font_desc.render(desc, True, (140, 140, 165))
         screen.blit(desc_text, (btn_rect.x + 12, btn_rect.y + 38))
 
-    hint = font_hint.render("[W/S or UP/DOWN] Navigate   [ENTER] Confirm", True, (100, 100, 130))
+    hint = font_hint.render("[W/S or arrows] Navigate   [ENTER] Confirm", True, (100, 100, 130))
     screen.blit(hint, ((w - hint.get_width()) // 2, py + panel_h + 14))
 
 
