@@ -6,14 +6,24 @@ import json
 import os
 import tempfile
 
-from item import Weapon, Armor, Consumable, Rarity, merge_into_stack
+from item import Weapon, Armor, Ring, Amulet, Consumable, Rarity, merge_into_stack
 from skills import PlayerClass, SkillTree
 
 SAVE_FILE = "save_data.json"
 SETTINGS_FILE = "settings.json"
 
 
-def save_game(player, snd=None, ach_manager=None, current_floor: int = 1, resume_context: dict | None = None):
+def save_game(
+    player,
+    snd=None,
+    ach_manager=None,
+    current_floor: int = 1,
+    resume_context: dict | None = None,
+    bestiary_manager=None,
+    quest_manager=None,
+    ng_plus_unlocked: bool = False,
+    ng_plus_active: bool = False,
+):
     """Save all player progress to JSON."""
     if ach_manager is not None:
         ach_manager.save()
@@ -24,6 +34,7 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1, resume
         "xp_to_next": player.xp_to_next,
         "base_atk": player._base_atk,
         "base_def": player._base_def,
+        "base_max_sp": getattr(player, "_base_max_sp", player.max_sp),
         "max_hp": player.max_hp,
         "current_hp": player.current_hp,
         "max_sp": player.max_sp,
@@ -38,13 +49,19 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1, resume
         "current_floor": current_floor,
         "player_class": player.player_class.value if player.player_class else None,
         "chosen_tree": player.chosen_tree.value if player.chosen_tree else None,
+        "ng_plus_unlocked": ng_plus_unlocked,
+        "ng_plus_active": ng_plus_active,
         "equipment": {
             "weapon": serialize_item(player.equipment.get("weapon")),
             "armor": serialize_item(player.equipment.get("armor")),
+            "ring": serialize_item(player.equipment.get("ring")),
+            "amulet": serialize_item(player.equipment.get("amulet")),
         },
         "inventory": [serialize_item(item) for item in player.inventory],
         "consumables": [serialize_consumable(c) for c in player.consumables],
         "resume_context": resume_context or {"mode": "hub"},
+        "bestiary": bestiary_manager.to_dict() if bestiary_manager else {},
+        "quests": quest_manager.to_dict() if quest_manager else {},
     }
     directory = os.path.dirname(os.path.abspath(SAVE_FILE)) or "."
     fd, tmp_path = tempfile.mkstemp(prefix="save_data.", suffix=".tmp", dir=directory)
@@ -61,9 +78,12 @@ def save_game(player, snd=None, ach_manager=None, current_floor: int = 1, resume
 
 
 def load_game(player):
-    """Load saved progress into the player object. Returns (loaded, current_floor, resume_context)."""
+    """Load saved progress into the player object.
+
+    Returns (loaded, current_floor, resume_context, meta_context).
+    """
     if not os.path.exists(SAVE_FILE):
-        return False, 1, {"mode": "hub"}
+        return False, 1, {"mode": "hub"}, {}
     try:
         with open(SAVE_FILE) as f:
             data = json.load(f)
@@ -75,7 +95,7 @@ def load_game(player):
             os.replace(SAVE_FILE, broken_name)
         except OSError:
             pass
-        return False, 1, {"mode": "hub"}
+        return False, 1, {"mode": "hub"}, {}
 
     player.gold = data.get("gold", 0)
     player.level = data.get("level", 1)
@@ -85,8 +105,8 @@ def load_game(player):
     player._base_def = data.get("base_def", 5)
     player.max_hp = data.get("max_hp", 100)
     player.current_hp = data.get("current_hp", player.max_hp)
-    player.max_sp = data.get("max_sp", getattr(player, "max_sp", 50))
-    player.sp = min(data.get("sp", player.max_sp), player.max_sp)
+    player.max_sp = data.get("base_max_sp", data.get("max_sp", getattr(player, "max_sp", 50)))
+    player.sp = data.get("sp", player.max_sp)
     player._base_crit = data.get("base_crit", getattr(player, "_base_crit", 0.05))
     player._eva = data.get("base_eva", getattr(player, "_eva", 0.05))
     player.status_effects = data.get("status_effects", [])
@@ -121,9 +141,11 @@ def load_game(player):
         player.chosen_tree = SkillTree.BERSERKER
 
     # Equipment
-    for slot in ("weapon", "armor"):
+    for slot in ("weapon", "armor", "ring", "amulet"):
         item_data = data.get("equipment", {}).get(slot)
         player.equipment[slot] = deserialize_item(item_data) if item_data else None
+
+    player.sp = min(player.sp, player.max_sp)
 
     # Inventory
     player.inventory = [deserialize_item(i) for i in data.get("inventory", []) if i]
@@ -135,18 +157,33 @@ def load_game(player):
         if item:
             merge_into_stack(player.consumables, item)
 
-    return True, data.get("current_floor", 1), data.get("resume_context", {"mode": "hub"})
+    meta_context = {
+        "bestiary": data.get("bestiary", {}),
+        "quests": data.get("quests", {}),
+        "ng_plus_unlocked": data.get("ng_plus_unlocked", False),
+        "ng_plus_active": data.get("ng_plus_active", False),
+    }
+    return True, data.get("current_floor", 1), data.get("resume_context", {"mode": "hub"}), meta_context
 
 
 def serialize_item(item):
     if item is None:
         return None
+    item_type = "weapon" if isinstance(item, Weapon) else "armor"
+    if isinstance(item, Ring):
+        item_type = "ring"
+    elif isinstance(item, Amulet):
+        item_type = "amulet"
     return {
-        "type": "weapon" if isinstance(item, Weapon) else "armor",
+        "type": item_type,
         "name": item.name,
         "rarity": item.rarity.name,
         "atk": getattr(item, "atk", 0),
         "defense": getattr(item, "defense", 0),
+        "acc": item.stat_modifier.get("acc", 0) if hasattr(item, "stat_modifier") else 0,
+        "eva": item.stat_modifier.get("eva", 0) if hasattr(item, "stat_modifier") else 0,
+        "crit": item.stat_modifier.get("crit", 0) if hasattr(item, "stat_modifier") else 0,
+        "sp": item.stat_modifier.get("sp", 0) if hasattr(item, "stat_modifier") else 0,
         "set_name": getattr(item, "set_name", None),
     }
 
@@ -156,12 +193,27 @@ def deserialize_item(data):
         return None
     rarity = Rarity[data["rarity"]]
     if data["type"] == "weapon":
-        item = Weapon(data["name"], rarity, data["atk"])
-    else:
+        item = Weapon(data["name"], rarity, data.get("atk", 0), acc=data.get("acc", 0))
+    elif data["type"] == "armor":
         item = Armor(data["name"], rarity, data["defense"])
+    elif data["type"] == "ring":
+        item = Ring(data["name"], rarity, acc=data.get("acc", 0), crit=data.get("crit", 0))
+    else:
+        item = Amulet(data["name"], rarity, sp=data.get("sp", 0), eva=data.get("eva", 0))
     if data.get("set_name"):
         item.set_name = data["set_name"]
     return item
+
+
+def get_save_snapshot() -> dict:
+    """Return a parsed save-file snapshot, or {} if unavailable/corrupt."""
+    if not os.path.exists(SAVE_FILE):
+        return {}
+    try:
+        with open(SAVE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 def serialize_consumable(c):

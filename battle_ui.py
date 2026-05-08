@@ -232,6 +232,7 @@ class BattleUI:
         self._inv_slide_direction = 0
         self._inv_visible = False
         self._log_scroll_offset = 0
+        self._log_overlay_open = False
 
         # Sprite animations
         self._player_anim = SpriteAnim()
@@ -441,6 +442,9 @@ class BattleUI:
     def scroll_log_down(self):
         if self._log_scroll_offset > 0:
             self._log_scroll_offset -= 1
+
+    def toggle_log_overlay(self):
+        self._log_overlay_open = not self._log_overlay_open
 
     # ── Main draw ──
 
@@ -778,13 +782,15 @@ class BattleUI:
         # ── Pre-render text surrogates for measurement ──
         weapon = char.equipment.get("weapon")
         armor = char.equipment.get("armor")
+        ring = char.equipment.get("ring")
+        amulet = char.equipment.get("amulet")
 
         name_color = RED if is_boss else WHITE
         name_surf = self.font_medium.render(char.name, True, name_color)
 
         # ── Calculate dynamic height ──
         name_h = name_surf.get_height()
-        equip_lines = (1 if weapon else 0) + (1 if armor else 0)
+        equip_lines = (1 if weapon else 0) + (1 if armor else 0) + (1 if ring else 0) + (1 if amulet else 0)
         if equip_lines == 0:
             equip_lines = 1
         active_sets = char.get_active_sets()
@@ -943,14 +949,20 @@ class BattleUI:
         eq_max_w = inner_w - 10
         NO_EQ_COLOR = (180, 220, 255)
 
-        if weapon:
-            self._draw_hud_equip_line(cx + 5, cur_y, eq_max_w, weapon, is_weapon=True)
-            cur_y += eq_h
-        if armor:
-            self._draw_hud_equip_line(cx + 5, cur_y, eq_max_w, armor, is_weapon=False)
-            cur_y += eq_h
+        equip_items = [
+            ("Weapon", weapon),
+            ("Armor", armor),
+            ("Ring", ring),
+            ("Amulet", amulet),
+        ]
+        drawn = False
+        for slot_name, item in equip_items:
+            if item:
+                self._draw_hud_equip_line(cx + 5, cur_y, eq_max_w, item, slot_name)
+                cur_y += eq_h
+                drawn = True
 
-        if not weapon and not armor:
+        if not drawn:
             empty_surf = self.font_hud.render("No equipment", True, NO_EQ_COLOR)
             self.screen.blit(empty_surf, (cx + (inner_w - empty_surf.get_width()) // 2,
                                            cur_y + (eq_h - empty_surf.get_height()) // 2))
@@ -1063,10 +1075,9 @@ class BattleUI:
                           int(self.w * 0.72), sprite_y, combat.enemy.name)
         self._enemy_anim.attack_dir = 1  # reset
 
-    def _draw_hud_equip_line(self, x, y, max_w, item, is_weapon=True):
+    def _draw_hud_equip_line(self, x, y, max_w, item, slot_name="Weapon"):
         """Draw a single equipment line inside the HUD — no truncation, scales font down if needed."""
         eq_gold = (200, 170, 50)
-        slot_name = "Weapon" if is_weapon else "Armor"
         stat_parts = []
         for stat, value in item.stat_modifier.items():
             if stat in ("acc", "eva"):
@@ -1128,6 +1139,9 @@ class BattleUI:
         log_pad = 16
         self._draw_combat_log(combat, log_x + log_pad, tray_y + log_pad,
                               log_w - log_pad * 2, tray_h - log_pad * 2)
+
+        if self._log_overlay_open:
+            self._draw_log_overlay(combat, tray_y, tray_h)
 
     def _draw_command_buttons(self, combat, x, y, w, h):
         """Draw command buttons as distinct items in the left section of the tray."""
@@ -1257,7 +1271,7 @@ class BattleUI:
         bar_y = y + h - content_pad - (arrow_reserve if self._skill_scroll < max_scroll else 0)
         sp_line = self.font_hud.render(f"SP: {player.sp}/{player.max_sp}", True, NEON_CYAN)
         self.screen.blit(sp_line, (x + content_pad, bar_y))
-        hint = self.font_small.render("ESC/B: Back", True, (100, 100, 130))
+        hint = self.font_small.render("ESC or B: Back", True, (100, 100, 130))
         self.screen.blit(hint, (x + w - hint.get_width() - content_pad, bar_y))
 
         # Empty state (safety)
@@ -1290,7 +1304,7 @@ class BattleUI:
         if not items:
             empty = self.font_medium.render("No consumable items.", True, DIM_WHITE)
             self.screen.blit(empty, (x + (w - empty.get_width()) // 2, y + h // 2 - 10))
-            hint = self.font_small.render("ESC/B: Back", True, (100, 100, 130))
+            hint = self.font_small.render("ESC or B: Back", True, (100, 100, 130))
             self.screen.blit(hint, (x + w - hint.get_width() - 4, y + h - hint.get_height() - 2))
             return
 
@@ -1350,7 +1364,7 @@ class BattleUI:
         hp_text = f"HP: {player.current_hp}/{player.max_hp}  |  {len(items)} items"
         hp_surf = self.font_hud.render(hp_text, True, DIM_WHITE)
         self.screen.blit(hp_surf, (x + 6, y + h - hp_surf.get_height() - 2))
-        hint = self.font_small.render("ESC/B: Back", True, (100, 100, 130))
+        hint = self.font_small.render("ESC or B: Back", True, (100, 100, 130))
         self.screen.blit(hint, (x + w - hint.get_width() - 4, y + h - hint.get_height() - 2))
 
         # Scroll arrows
@@ -1401,6 +1415,52 @@ class BattleUI:
         if self._log_scroll_offset > 0:
             hint = self.font_hud.render("^ More above", True, (100, 100, 130))
             self.screen.blit(hint, (x + (w - hint.get_width()) // 2, y + 2))
+
+    def _draw_log_overlay(self, combat, tray_y: int, tray_h: int):
+        """Full-width log viewer overlay."""
+        overlay = pygame.Surface((self.w, tray_h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 195))
+        self.screen.blit(overlay, (0, tray_y))
+
+        panel_w = self.w - 80
+        panel_h = tray_h - 30
+        px = 40
+        py = tray_y + 15
+        self._draw_glass_panel(px, py, panel_w, panel_h, border_color=NEON_CYAN, border_alpha=180, border_width=2, corner_radius=10)
+
+        title = self.font_medium.render("COMBAT LOG", True, NEON_CYAN)
+        self.screen.blit(title, (px + 16, py + 10))
+        hint = self.font_small.render("L: Close log   PgUp/PgDn: Scroll", True, DIM_WHITE)
+        self.screen.blit(hint, (px + panel_w - hint.get_width() - 16, py + 14))
+
+        all_logs = combat._log
+        if not all_logs:
+            empty = self.font_medium.render("No combat log entries yet.", True, DIM_WHITE)
+            self.screen.blit(empty, (px + (panel_w - empty.get_width()) // 2, py + panel_h // 2))
+            return
+
+        line_h = 18
+        line_gap = 4
+        row_h = line_h + line_gap
+        inner_x = px + 16
+        inner_y = py + 42
+        inner_w = panel_w - 32
+        inner_h = panel_h - 58
+        max_visible = max(1, inner_h // row_h)
+        max_scroll = max(0, len(all_logs) - max_visible)
+        self._log_scroll_offset = min(self._log_scroll_offset, max_scroll)
+        start = max(0, len(all_logs) - max_visible - self._log_scroll_offset)
+        end = min(len(all_logs), start + max_visible)
+
+        clip_rect = pygame.Rect(inner_x, inner_y, inner_w, inner_h)
+        old_clip = self.screen.get_clip()
+        self.screen.set_clip(clip_rect)
+        for i, msg in enumerate(all_logs[start:end]):
+            truncated = _truncate_text(self.font_small, msg, inner_w)
+            surf = self.font_small.render(truncated, True, WHITE)
+            msg_y = inner_y + inner_h - (i + 1) * row_h + line_gap
+            self.screen.blit(surf, (inner_x, msg_y))
+        self.screen.set_clip(old_clip)
 
     # ── Inventory overlay ──
 
@@ -1457,9 +1517,11 @@ class BattleUI:
 
         weapon = p.equipment.get("weapon")
         armor = p.equipment.get("armor")
+        ring = p.equipment.get("ring")
+        amulet = p.equipment.get("amulet")
         eq_slot_h = 34
 
-        eq_panel_rect = pygame.Rect(content_x - 4, eq_y - 2, content_w + 8, eq_slot_h * 2 + 8)
+        eq_panel_rect = pygame.Rect(content_x - 4, eq_y - 2, content_w + 8, eq_slot_h * 4 + 8)
         eq_panel_surf = pygame.Surface((eq_panel_rect.w, eq_panel_rect.h), pygame.SRCALPHA)
         eq_panel_surf.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 100))
         self.screen.blit(eq_panel_surf, (eq_panel_rect.x, eq_panel_rect.y))
@@ -1468,10 +1530,14 @@ class BattleUI:
 
         # Weapon
         w_sel = in_equipped and combat.inv_equip_cursor == 0
-        self._draw_equip_slot(content_x, eq_y, content_w, eq_slot_h, "W", weapon, w_sel, True)
+        self._draw_equip_slot(content_x, eq_y, content_w, eq_slot_h, "Weapon", weapon, w_sel, True)
         a_sel = in_equipped and combat.inv_equip_cursor == 1
-        self._draw_equip_slot(content_x, eq_y + eq_slot_h, content_w, eq_slot_h, "A", armor, a_sel, False)
-        eq_y += eq_slot_h * 2 + 14
+        self._draw_equip_slot(content_x, eq_y + eq_slot_h, content_w, eq_slot_h, "Armor", armor, a_sel, False)
+        r_sel = in_equipped and combat.inv_equip_cursor == 2
+        self._draw_equip_slot(content_x, eq_y + eq_slot_h * 2, content_w, eq_slot_h, "Ring", ring, r_sel, False)
+        m_sel = in_equipped and combat.inv_equip_cursor == 3
+        self._draw_equip_slot(content_x, eq_y + eq_slot_h * 3, content_w, eq_slot_h, "Amulet", amulet, m_sel, False)
+        eq_y += eq_slot_h * 4 + 14
 
         # ── Bag section ──
         bag_hdr_color = GOLD if in_bag else DIM_WHITE
@@ -1532,7 +1598,7 @@ class BattleUI:
 
         # Instructions
         instr_y = py + panel_h - instr_reserved
-        instr_text = "Tab: Section   W/S: Nav   E: Equip   U: Unequip   F: Sort   ESC: Back"
+        instr_text = "Tab: Section   W/S: Move   E: Equip   U: Unequip   F: Sort   ESC/B: Back"
         instr_surf = self.font_small.render(instr_text, True, (100, 100, 130))
         self.screen.blit(instr_surf, (px + (panel_w - instr_surf.get_width()) // 2, instr_y + 6))
 
@@ -1546,8 +1612,16 @@ class BattleUI:
         if item:
             accent = RARITY_ACCENT.get(item.rarity, (60, 60, 75))
             pygame.draw.rect(self.screen, accent, (x + 6, y + 6, 3, h - 12), border_radius=1)
-            stat_val = f"+{item.atk} ATK" if is_weapon else f"+{item.defense} DEF"
-            label_text = "Weapon" if is_weapon else "Armor"
+            stat_parts = []
+            for stat, value in item.stat_modifier.items():
+                if stat in ("acc", "eva", "crit"):
+                    stat_parts.append(f"+{int(value * 100)}% {stat.upper()}")
+                elif stat == "sp":
+                    stat_parts.append(f"+{value} SP")
+                else:
+                    stat_parts.append(f"+{value} {stat.upper()}")
+            stat_val = " ".join(stat_parts) if stat_parts else "No stats"
+            label_text = slot_label
             full = f"{label_text}: {item.name}  [{stat_val}]"
             if selected:
                 full = f"> {full}"
@@ -1564,7 +1638,7 @@ class BattleUI:
                         break
             self.screen.blit(surf, (x + 12, y + (h - surf.get_height()) // 2))
         else:
-            text = f"{'Weapon' if is_weapon else 'Armor'}: (empty)"
+            text = f"{slot_label}: (empty)"
             if selected:
                 text = f"> {text}"
                 color = NEON_CYAN
@@ -1574,12 +1648,23 @@ class BattleUI:
             self.screen.blit(surf, (x + 12, y + (h - surf.get_height()) // 2))
 
     def _draw_bag_item_row(self, x, y, w, h, item, selected):
-        from item import Weapon
         rarity_c = RARITY_COLOR.get(item.rarity, WHITE)
         accent_c = RARITY_ACCENT.get(item.rarity, (60, 60, 75))
-        is_weapon = isinstance(item, Weapon)
-        slot_name = "W" if is_weapon else "A"
-        stat_val = f"+{item.atk} ATK" if is_weapon else f"+{item.defense} DEF"
+        slot_name = {
+            ItemSlot.WEAPON: "W",
+            ItemSlot.ARMOR: "A",
+            ItemSlot.RING: "R",
+            ItemSlot.AMULET: "M",
+        }.get(item.slot, "?")
+        stat_parts = []
+        for stat, value in item.stat_modifier.items():
+            if stat in ("acc", "eva", "crit"):
+                stat_parts.append(f"+{int(value * 100)}% {stat.upper()}")
+            elif stat == "sp":
+                stat_parts.append(f"+{value} SP")
+            else:
+                stat_parts.append(f"+{value} {stat.upper()}")
+        stat_val = " ".join(stat_parts) if stat_parts else "No stats"
 
         if selected:
             pulse = 0.7 + 0.3 * math.sin(self._pulse_timer * 0.008)

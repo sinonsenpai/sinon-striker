@@ -52,6 +52,16 @@ ACHIEVEMENT_DEFS = [
     {"id": "blessed", "name": "Blessed", "desc": "Use a shrine.", "icon": "🙏"},
     {"id": "devout", "name": "Devout", "desc": "Use 10 shrines.", "icon": "⛪", "counter": "shrines_used", "threshold": 10},
     {"id": "light_footed", "name": "Light-Footed", "desc": "Dodge a trap (Rogue passive).", "icon": "👣"},
+    # Remaining progression / meta
+    {"id": "librarian", "name": "Librarian", "desc": "Complete the bestiary.", "icon": "📘"},
+    {"id": "quest_master", "name": "Quest Master", "desc": "Complete 10 quests.", "icon": "📝", "counter": "quests_completed", "threshold": 10},
+    {"id": "artificer", "name": "Artificer", "desc": "Upgrade 5 items at the Smithy.", "icon": "🔧", "counter": "items_upgraded", "threshold": 5},
+    {"id": "accessorized", "name": "Accessorized", "desc": "Equip a Ring and Amulet simultaneously.", "icon": "💍"},
+    {"id": "demi_god", "name": "Demi-God", "desc": "Reach level 50.", "icon": "✨", "counter": "level_reached", "threshold": 50},
+    {"id": "ng_plus_conqueror", "name": "NG+ Conqueror", "desc": "Clear floor 10 on NG+.", "icon": "♾️", "counter": "ngplus_floor", "threshold": 1},
+    {"id": "completionist", "name": "Completionist", "desc": "Unlock all other achievements.", "icon": "🏅"},
+    {"id": "speed_runner", "name": "Speed Runner", "desc": "Clear a dungeon in under 2 minutes.", "icon": "⏱️", "counter": "speed_runs", "threshold": 1},
+    {"id": "pacifist", "name": "Pacifist", "desc": "Clear a floor without defeating any combat rooms.", "icon": "☮️", "counter": "pacifist_floors", "threshold": 1},
 ]
 
 

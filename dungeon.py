@@ -263,7 +263,7 @@ def _pick_enemy(floor: int) -> str:
 class DungeonRun:
     """Tracks the state of a single dungeon run."""
 
-    def __init__(self, player, floor: int = 1):
+    def __init__(self, player, floor: int = 1, ng_plus: bool = False):
         self.player = player
         self.floor = floor
         self.biome = get_biome(floor)
@@ -272,6 +272,8 @@ class DungeonRun:
         self.total_rooms = len(self.rooms)
         self.enemies_defeated = 0
         self.total_gold = 0
+        self.elapsed_ms = 0
+        self.ng_plus = ng_plus
 
         # Room transition state
         self.room_transition = 0.0   # timer for "room cleared" overlay
@@ -306,6 +308,7 @@ class DungeonRun:
         self.room_transition = 1500  # 1.5s overlay
 
     def update(self, dt_ms: int):
+        self.elapsed_ms += dt_ms
         if self.room_transition > 0:
             self.room_transition -= dt_ms
             if self.room_transition <= 0:

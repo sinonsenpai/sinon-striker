@@ -16,7 +16,8 @@ class Character:
         self.current_hp = max_hp
         self._base_atk = atk
         self._base_def = defn
-        self.equipment = {"weapon": None, "armor": None}
+        self._base_max_sp = 50
+        self.equipment = {"weapon": None, "armor": None, "ring": None, "amulet": None}
         self.inventory: list = []
         self.consumables: list = []
         self.skill_cooldowns: dict[str, int] = {}
@@ -24,7 +25,6 @@ class Character:
 
         # SP system
         self.sp: int = 50
-        self.max_sp: int = 50
 
         # Level / XP system
         self.level: int = 1
@@ -52,6 +52,20 @@ class Character:
         self._conflagration_active: bool = False
 
     # ── Properties ─────────────────────────────────────────────────
+
+    @property
+    def max_sp(self) -> int:
+        bonus = 0
+        amulet = self.equipment.get("amulet")
+        if amulet:
+            bonus += amulet.stat_modifier.get("sp", 0)
+        for set_data in self.get_active_sets().values():
+            bonus += set_data["bonus"].get("sp", 0)
+        return self._base_max_sp + bonus
+
+    @max_sp.setter
+    def max_sp(self, value: int):
+        self._base_max_sp = max(0, value)
 
     @property
     def base_atk(self) -> int:
@@ -112,6 +126,9 @@ class Character:
     def crit_chance(self) -> float:
         """Fragile Focus: crit chance increases as HP decreases."""
         base = getattr(self, '_base_crit', 0.05)
+        ring = self.equipment.get("ring")
+        if ring:
+            base += ring.stat_modifier.get("crit", 0)
         hp_pct = self.current_hp / self.max_hp if self.max_hp > 0 else 1.0
         bonus = (1.0 - hp_pct) * 0.30
         return base + bonus
@@ -122,6 +139,9 @@ class Character:
         base = 0.85
         weapon = self.equipment.get("weapon")
         acc_bonus = weapon.stat_modifier.get("acc", 0) if weapon else 0
+        ring = self.equipment.get("ring")
+        if ring:
+            acc_bonus += ring.stat_modifier.get("acc", 0)
         return min(0.95, base + acc_bonus)
 
     @property
@@ -130,6 +150,9 @@ class Character:
         base = self._eva
         armor = self.equipment.get("armor")
         eva_bonus = armor.stat_modifier.get("eva", 0) if armor else 0
+        amulet = self.equipment.get("amulet")
+        if amulet:
+            eva_bonus += amulet.stat_modifier.get("eva", 0)
         total = min(0.30, base + eva_bonus)
         if self.has_status("smoke_screen"):
             total = min(0.50, total + 0.25)
@@ -152,15 +175,23 @@ class Character:
         self.player_class = player_class
 
     def equip(self, item) -> None:
-        slot_key = "weapon" if item.slot == ItemSlot.WEAPON else "armor"
+        slot_map = {
+            ItemSlot.WEAPON: "weapon",
+            ItemSlot.ARMOR: "armor",
+            ItemSlot.RING: "ring",
+            ItemSlot.AMULET: "amulet",
+        }
+        slot_key = slot_map[item.slot]
         old_item = self.equipment[slot_key]
         self.equipment[slot_key] = item
+        self.sp = min(self.sp, self.max_sp)
         return old_item
 
     def unequip_slot(self, slot_key: str):
         old_item = self.equipment.get(slot_key)
         if old_item:
             self.equipment[slot_key] = None
+            self.sp = min(self.sp, self.max_sp)
             return old_item
         return None
 
