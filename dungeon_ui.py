@@ -8,16 +8,45 @@ import random
 from dungeon import RoomType, ROOM_ICONS, ROOM_COLORS, ROOM_LABELS, ENEMY_POOL, FLAVOR
 
 
-BG_COLOR = (18, 14, 30)
-NEON_CYAN = (0, 240, 255)
-NEON_CYAN_DIM = (0, 100, 120)
-GOLD = (255, 215, 0)
-GOLD_DIM = (120, 100, 30)
-WHITE = (230, 230, 245)
-DIM_WHITE = (160, 160, 180)
-RED = (220, 50, 60)
-GREEN = (50, 210, 100)
-PANEL_BG = (20, 15, 40)
+BG_COLOR = (10, 10, 16)
+NEON_CYAN = (90, 220, 220)
+NEON_CYAN_DIM = (38, 92, 102)
+GOLD = (224, 186, 96)
+GOLD_DIM = (112, 92, 42)
+WHITE = (236, 236, 244)
+DIM_WHITE = (156, 156, 176)
+RED = (212, 68, 78)
+GREEN = (72, 192, 112)
+PANEL_BG = (18, 16, 28)
+
+ROUTE_BG = BG_COLOR
+ROUTE_FOG = (24, 18, 42)
+ROUTE_PANEL_FILL = (20, 15, 40, 232)
+ROUTE_PANEL_BORDER = (0, 240, 255)
+ROUTE_PANEL_INNER = (255, 255, 255, 14)
+ROUTE_TAB_FILL = (18, 16, 30, 236)
+ROUTE_TAB_BORDER = (0, 240, 255)
+ROUTE_TAB_INNER = (255, 255, 255, 16)
+ROUTE_TEXT = WHITE
+ROUTE_MUTED = DIM_WHITE
+ROUTE_LOCKED = (78, 78, 96)
+ROUTE_ACCENT = GOLD
+ROUTE_CURRENT = GOLD
+ROUTE_AVAILABLE = GREEN
+ROUTE_SELECTED = NEON_CYAN
+ROUTE_BOSS = RED
+
+ROUTE_LABELS = {
+    RoomType.COMBAT: "Combat",
+    RoomType.ELITE: "Elite",
+    RoomType.LOOT: "Treasure",
+    RoomType.REST: "Rest",
+    RoomType.SHOP: "Shop",
+    RoomType.EXIT: "Exit",
+    RoomType.BOSS: "Boss",
+    RoomType.SHRINE: "Event",
+    RoomType.TRAP: "Hazard",
+}
 
 
 class DungeonUI:
@@ -34,8 +63,12 @@ class DungeonUI:
         self.font_small = pygame.font.SysFont("arial", 16, bold=False)
         self.font_hud = pygame.font.SysFont("arial", 14, bold=False)
         self.font_icon = pygame.font.SysFont("arial", 40, bold=True)
+        self.font_map_title = pygame.font.SysFont("arial", 40, bold=True)
+        self.font_map_subtitle = pygame.font.SysFont("arial", 20, bold=True)
+        self.font_map_meta = pygame.font.SysFont("arial", 15, bold=False)
         self._elapsed = 0.0
-        self.branch_selection = 0
+        self.route_focus_layer = 0
+        self.route_selection_index = 0
 
         # Chest / loot state
         self.chest_opened = False
@@ -65,44 +98,303 @@ class DungeonUI:
     def set_run(self, run):
         self.run = run
 
-    def reset_branch_selection(self):
-        self.branch_selection = 0
-
-    # ── Minimap ───────────────────────────────────────────────────
-
-    def _draw_minimap(self, x: int, y: int):
-        """Draw room icon strip showing dungeon progress."""
-        if not self.run or not self.run.rooms:
+    def reset_route_selection(self):
+        if not self.run or not getattr(self.run, "map", None):
+            self.route_focus_layer = 0
+            self.route_selection_index = 0
             return
-        rooms = self.run.rooms
-        current_idx = self.run.room_index
-        icon_size = 18
-        gap = 4
-        total_w = len(rooms) * icon_size + (len(rooms) - 1) * gap
-        start_x = (self.w - total_w) // 2
+        current = self.run.current
+        if current and current.cleared and not self.run.done:
+            options = self.run.available_nodes
+            self.route_focus_layer = options[0].layer if options else current.layer + 1
+        else:
+            self.route_focus_layer = current.layer if current else 0
+        self.route_selection_index = 0
 
-        for i, room in enumerate(rooms):
-            rx = start_x + i * (icon_size + gap)
-            color = ROOM_COLORS.get(room["type"], DIM_WHITE)
-            alpha = 255
+    def _route_layers(self):
+        if not self.run or not getattr(self.run, "map", None):
+            return []
+        layers = {}
+        for node in self.run.map.nodes:
+            layers.setdefault(node.layer, []).append(node)
+        return [layers[idx] for idx in sorted(layers.keys())]
 
-            if i < current_idx:
-                # Past: dim
-                alpha = 80
-            elif i == current_idx:
-                # Current: pulsing
-                pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
-                alpha = int(180 + 60 * pulse)
-            else:
-                # Future: hidden
-                alpha = 30
+    def _route_map_label(self, node):
+        return ROUTE_LABELS.get(node.node_type, ROOM_LABELS.get(node.node_type, "?"))
 
-            # Draw room dot
-            dot = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-            pygame.draw.rect(dot, (*color, alpha), (0, 0, icon_size, icon_size), 0, border_radius=3)
-            if i == current_idx:
-                pygame.draw.rect(dot, (*color, alpha), (0, 0, icon_size, icon_size), 1, border_radius=3)
-            self.screen.blit(dot, (rx, y))
+    def _text_contrast_color(self, bg_color):
+        r, g, b = bg_color[:3]
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b)
+        return (18, 18, 24) if luminance > 160 else (245, 245, 250)
+
+    def _render_text_with_outline(self, text, font, fill, outline=(0, 0, 0), outline_px=2):
+        base = font.render(text, True, fill)
+        if outline_px <= 0:
+            return base
+        surf = pygame.Surface((base.get_width() + outline_px * 2, base.get_height() + outline_px * 2), pygame.SRCALPHA)
+        for ox, oy in ((-outline_px, 0), (outline_px, 0), (0, -outline_px), (0, outline_px), (-outline_px, -outline_px), (-outline_px, outline_px), (outline_px, -outline_px), (outline_px, outline_px)):
+            shadow = font.render(text, True, outline)
+            surf.blit(shadow, (outline_px + ox, outline_px + oy))
+        surf.blit(base, (outline_px, outline_px))
+        return surf
+
+    def _route_curve_points(self, start, end, bend=0.18, segments=20):
+        x1, y1 = start
+        x2, y2 = end
+        dx = x2 - x1
+        dy = y2 - y1
+        c1 = (x1 + dx * 0.34, y1 + dy * bend)
+        c2 = (x1 + dx * 0.66, y2 - dy * bend)
+        points = []
+        for i in range(segments + 1):
+            t = i / segments
+            u = 1.0 - t
+            x = (
+                (u ** 3) * x1
+                + 3 * (u ** 2) * t * c1[0]
+                + 3 * u * (t ** 2) * c2[0]
+                + (t ** 3) * x2
+            )
+            y = (
+                (u ** 3) * y1
+                + 3 * (u ** 2) * t * c1[1]
+                + 3 * u * (t ** 2) * c2[1]
+                + (t ** 3) * y2
+            )
+            points.append((int(x), int(y)))
+        return points
+
+    def _draw_route_connection(self, surf, start, end, color, alpha=120, active=False, completed=False):
+        shadow_alpha = 42 if not completed else 20
+        if active:
+            alpha = min(255, alpha + 90)
+            shadow_alpha = 58
+        line_color = (*color, alpha)
+        points = self._route_curve_points(start, end, bend=0.10 if active else 0.16, segments=26)
+        if len(points) >= 2:
+            pygame.draw.lines(surf, (0, 0, 0, shadow_alpha), False, points, 8 if active else 5)
+            pygame.draw.lines(surf, line_color, False, points, 4 if active else 2)
+            if completed:
+                pygame.draw.lines(surf, (*color, 42), False, points, 1)
+            if active:
+                pulse = 0.55 + 0.45 * math.sin(self._elapsed * 0.009)
+                glow = (*color, int(170 * pulse))
+                pygame.draw.lines(surf, glow, False, points, 6)
+                if points:
+                    pygame.draw.circle(surf, glow, points[-1], 5)
+
+    def _draw_route_background(self, biome_tint):
+        self.screen.fill(ROUTE_BG)
+
+        base = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        base.fill((7, 6, 10, 255))
+        self.screen.blit(base, (0, 0))
+
+        # Soft layered glow, kept deliberately restrained for readability.
+        glows = [
+            (int(self.w * 0.16), int(self.h * 0.22), (*biome_tint[:3], 18), 180),
+            (int(self.w * 0.80), int(self.h * 0.18), (*NEON_CYAN, 12), 220),
+            (int(self.w * 0.52), int(self.h * 0.82), (*ROUTE_FOG, 10), 240),
+        ]
+        for gx, gy, color, radius in glows:
+            for step in range(5):
+                r = radius + step * 28
+                alpha = max(0, color[3] - step * 3)
+                glow = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow, (*color[:3], alpha), (r, r), r)
+                self.screen.blit(glow, (gx - r, gy - r))
+
+        # Sparse dust and a couple of wide translucent bands to avoid a flat backdrop.
+        particle_count = 22 + self.run.floor * 2
+        for i in range(particle_count):
+            px = int((self._elapsed * 0.012 + i * 83) % (self.w + 120)) - 60
+            py = int((i * 59 + self._elapsed * 0.0065) % (self.h - 40)) + 20
+            alpha = 12 + (i % 4) * 4
+            size = 1 + (i % 3)
+            pygame.draw.circle(self.screen, (210, 220, 245, alpha), (px, py), size)
+
+        band = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        for idx in range(4):
+            band.fill((0, 0, 0, 0))
+            band_alpha = 8 if idx % 2 == 0 else 4
+            y = int(self.h * (0.18 + idx * 0.20))
+            pygame.draw.rect(band, (255, 255, 255, band_alpha), (0, y, self.w, 34))
+            self.screen.blit(band, (0, 0))
+
+        vignette = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        for i in range(10):
+            alpha = 20 + i * 10
+            margin = i * 18
+            pygame.draw.rect(
+                vignette,
+                (0, 0, 0, alpha),
+                (margin, margin, self.w - margin * 2, self.h - margin * 2),
+                2,
+                border_radius=14,
+            )
+        self.screen.blit(vignette, (0, 0))
+
+    def _draw_route_panel(self, rect):
+        shadow = pygame.Surface((rect.w + 18, rect.h + 18), pygame.SRCALPHA)
+        shadow.fill((0, 0, 0, 110))
+        self.screen.blit(shadow, (rect.x - 9, rect.y + 9))
+
+        frame = pygame.Surface(rect.size, pygame.SRCALPHA)
+        frame.fill(ROUTE_PANEL_FILL)
+        self.screen.blit(frame, rect.topleft)
+        pygame.draw.rect(self.screen, ROUTE_PANEL_BORDER, rect, 2, border_radius=18)
+
+        inner = rect.inflate(-14, -14)
+        pygame.draw.rect(self.screen, ROUTE_PANEL_INNER, inner, 1, border_radius=14)
+
+    def _draw_route_tab(self, center_x, y, text, accent, is_boss=False):
+        chip = self.font_hud.render(text, True, ROUTE_TEXT)
+        chip_w = chip.get_width() + 22
+        chip_h = chip.get_height() + 12
+        chip_x = int(center_x - chip_w // 2)
+        chip_surf = pygame.Surface((chip_w, chip_h), pygame.SRCALPHA)
+        fill = ROUTE_TAB_FILL if not is_boss else (34, 20, 22, 240)
+        chip_surf.fill(fill)
+        pygame.draw.rect(chip_surf, accent, (0, 0, chip_w, chip_h), 1, border_radius=9)
+        pygame.draw.rect(chip_surf, ROUTE_TAB_INNER, (3, 3, chip_w - 6, chip_h - 6), 1, border_radius=7)
+        chip_surf.blit(chip, (11, 6))
+        self.screen.blit(chip_surf, (chip_x, y))
+
+    def _draw_route_legend(self, x, y):
+        # Kept for future expansion, but the current map layout no longer draws this
+        # inline because it was competing with the route space on smaller windows.
+        items = [
+            ("Current", ROUTE_CURRENT),
+            ("Available", ROUTE_AVAILABLE),
+            ("Cleared", ROUTE_ACCENT),
+            ("Locked", ROUTE_LOCKED),
+            ("Boss", ROUTE_BOSS),
+        ]
+        cursor_x = x
+        for label, color in items:
+            text = self.font_hud.render(label, True, ROUTE_TEXT)
+            box_w = text.get_width() + 18
+            box_h = text.get_height() + 8
+            box = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+            box.fill((20, 15, 40, 220))
+            pygame.draw.rect(box, color, (0, 0, box_w, box_h), 1, border_radius=8)
+            pygame.draw.rect(box, (255, 255, 255, 12), (3, 3, box_w - 6, box_h - 6), 1, border_radius=6)
+            box.blit(text, (9, 4))
+            self.screen.blit(box, (cursor_x, y))
+            cursor_x += box_w + 10
+
+    def _draw_route_node_card(self, node, rect, current_id, selected_id, available_ids):
+        x, y, w, h = rect
+        is_current = node.id == current_id
+        is_completed = node.id in self.run.map.completed_ids
+        is_available = node.id in available_ids
+        is_selected = node.id == selected_id
+        color = ROOM_COLORS.get(node.node_type, ROUTE_TEXT)
+
+        bg_color = (28, 26, 34)
+        if is_completed:
+            bg_color = tuple(max(24, int(c * 0.22) + 16) for c in color)
+        elif is_available or is_current:
+            bg_color = tuple(min(255, int(c * 0.84) + 30) for c in color)
+
+        bg_alpha = 238 if (is_available or is_current or is_completed) else 176
+        accent = color if (is_available or is_current or is_completed) else ROUTE_LOCKED
+        label_color = self._text_contrast_color(bg_color)
+        if not (is_available or is_current or is_completed):
+            label_color = ROUTE_MUTED
+
+        if is_current:
+            pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.006)
+            glow = pygame.Surface((w + 44, h + 44), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow, (*ROUTE_CURRENT, int(42 * pulse)), (8, 8, w + 28, h + 28))
+            pygame.draw.ellipse(glow, (*color, int(24 * pulse)), (18, 18, w + 8, h + 8))
+            self.screen.blit(glow, (x - 22, y - 22))
+
+        if is_selected:
+            pulse = 0.55 + 0.45 * math.sin(self._elapsed * 0.008)
+            glow = pygame.Surface((w + 34, h + 34), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow, (*ROUTE_SELECTED, int(28 * pulse)), (5, 5, w + 24, h + 24))
+            self.screen.blit(glow, (x - 17, y - 17))
+
+        node_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        node_surf.fill((*bg_color, bg_alpha))
+        pygame.draw.rect(node_surf, (255, 255, 255, 24), (5, 5, w - 10, h // 2), border_radius=12)
+        pygame.draw.rect(node_surf, (255, 255, 255, 10), (8, 9, w - 16, 6), border_radius=4)
+        self.screen.blit(node_surf, (x, y))
+
+        border_color = accent
+        border_alpha = 255 if is_selected else (235 if is_current else (220 if is_available or is_completed else 112))
+        border_w = 4 if is_selected else (3 if is_current else 2)
+        pygame.draw.rect(self.screen, (0, 0, 0, 125), (x + 2, y + 4, w, h), border_w + 2, border_radius=18)
+        pygame.draw.rect(self.screen, (*border_color, border_alpha), (x, y, w, h), border_w, border_radius=18)
+
+        # Inner emblem that gives the nodes a readable focal point without clutter.
+        emblem_r = max(10, min(w, h) // 4)
+        emblem_center = (x + w // 2, y + h // 2 - 8)
+        emblem = pygame.Surface((emblem_r * 2 + 10, emblem_r * 2 + 10), pygame.SRCALPHA)
+        emblem_color = color if (is_available or is_current or is_completed) else ROUTE_MUTED
+        if is_completed:
+            emblem_color = tuple(max(80, int(c * 0.72)) for c in color)
+        pygame.draw.circle(emblem, (*emblem_color, 54 if (is_available or is_current) else 38), (emblem_r + 5, emblem_r + 5), emblem_r + 2)
+        pygame.draw.circle(emblem, (*emblem_color, 165 if (is_available or is_current or is_completed) else 96), (emblem_r + 5, emblem_r + 5), emblem_r, 2)
+        self.screen.blit(emblem, (emblem_center[0] - emblem.get_width() // 2, emblem_center[1] - emblem.get_height() // 2))
+
+        icon = self.font_icon.render(node.icon_letter, True, emblem_color)
+        self.screen.blit(icon, (x + (w - icon.get_width()) // 2, y + 5))
+
+        label = self._route_map_label(node)
+        outline = (255, 255, 255) if label_color[0] < 90 else (0, 0, 0)
+        label_surf = self._render_text_with_outline(label, self.font_hud, label_color, outline=outline, outline_px=1)
+        label_bg = pygame.Surface((label_surf.get_width() + 12, label_surf.get_height() + 8), pygame.SRCALPHA)
+        label_bg.fill((18, 16, 30, 186))
+        pygame.draw.rect(label_bg, (*border_color, 180 if (is_available or is_current or is_completed) else 120), (0, 0, label_bg.get_width(), label_bg.get_height()), 1, border_radius=9)
+        label_bg.blit(label_surf, (6, 4))
+        self.screen.blit(label_bg, (x + (w - label_bg.get_width()) // 2, y + h - label_bg.get_height() - 6))
+
+        if is_completed:
+            check = self.font_hud.render("✓", True, GOLD)
+            self.screen.blit(check, (x + w - check.get_width() - 6, y + 4))
+
+    def _selectable_nodes_for_layer(self, layer: int):
+        if not self.run or not getattr(self.run, "map", None):
+            return []
+        current = self.run.current
+        if current is None:
+            return []
+        if not current.cleared:
+            return [current] if layer == current.layer else []
+        if layer != current.layer + 1:
+            return []
+        return [node for node in self.run.available_nodes if node.layer == layer]
+
+    def route_move_left(self):
+        if not self.run:
+            return
+        self.route_focus_layer = max(0, self.route_focus_layer - 1)
+        self.route_selection_index = 0
+
+    def route_move_right(self):
+        if not self.run or not getattr(self.run, "map", None):
+            return
+        max_layer = max(node.layer for node in self.run.map.nodes) if self.run.map.nodes else 0
+        self.route_focus_layer = min(max_layer, self.route_focus_layer + 1)
+        self.route_selection_index = 0
+
+    def route_move_up(self):
+        options = self._selectable_nodes_for_layer(self.route_focus_layer)
+        if options:
+            self.route_selection_index = (self.route_selection_index - 1) % len(options)
+
+    def route_move_down(self):
+        options = self._selectable_nodes_for_layer(self.route_focus_layer)
+        if options:
+            self.route_selection_index = (self.route_selection_index + 1) % len(options)
+
+    def route_selected_node(self):
+        options = self._selectable_nodes_for_layer(self.route_focus_layer)
+        if not options:
+            return None
+        return options[self.route_selection_index % len(options)]
 
     # ── Floor select ──────────────────────────────────────────────
 
@@ -147,6 +439,213 @@ class DungeonUI:
         debug = self.font_hud.render("F3: Test Loot Room", True, (100, 100, 80))
         self.screen.blit(debug, ((self.w - debug.get_width()) // 2, py + 285))  # Was 270
 
+    def draw_route_map(self):
+        if not self.run or not getattr(self.run, "map", None):
+            self.screen.fill(BG_COLOR)
+            msg = self.font_large.render("No route map available.", True, DIM_WHITE)
+            self.screen.blit(msg, ((self.w - msg.get_width()) // 2, self.h // 2))
+            return
+
+        biome_tint = self.run.biome.get("bg_tint", (8, 8, 16))
+        self._draw_route_background(biome_tint)
+
+        ordered_layers = self._route_layers()
+        layer_count = len(ordered_layers)
+        if layer_count == 0:
+            return
+        for nodes in ordered_layers:
+            nodes.sort(key=lambda n: n.position)
+
+        current = self.run.current
+        current_id = current.id if current else None
+        available_ids = {node.id for node in self.run.available_nodes}
+        selected = self.route_selected_node()
+        selected_id = selected.id if selected else None
+
+        # Header
+        title_text = f"FLOOR {self.run.floor}"
+        title_shadow = self.font_map_title.render(title_text, True, (0, 0, 0))
+        title = self.font_map_title.render(title_text, True, ROUTE_CURRENT)
+        title_box_w = max(260, title.get_width() + 46)
+        title_box_h = 54
+        title_box_x = (self.w - title_box_w) // 2
+        title_box_y = 6
+        title_box = pygame.Surface((title_box_w, title_box_h), pygame.SRCALPHA)
+        title_box.fill(ROUTE_PANEL_FILL)
+        pygame.draw.rect(title_box, ROUTE_PANEL_BORDER, (0, 0, title_box_w, title_box_h), 2, border_radius=16)
+        pygame.draw.rect(title_box, ROUTE_PANEL_INNER, (6, 6, title_box_w - 12, title_box_h - 12), 1, border_radius=12)
+        title_box.blit(title_shadow, ((title_box_w - title_shadow.get_width()) // 2 + 2, 6))
+        title_box.blit(title, ((title_box_w - title.get_width()) // 2, 4))
+        self.screen.blit(title_box, (title_box_x, title_box_y))
+
+        cleared = len(self.run.map.completed_ids)
+        summary_text = f"Cleared {cleared}/{self.run.total_rooms} · {self.run.remaining_count()} room(s) remaining"
+        if self.run.done:
+            summary_text += " · Floor cleared"
+        route_meta = f"{self.run.biome['name']}  ·  {summary_text}"
+        route_meta_surf = self.font_map_meta.render(route_meta, True, ROUTE_MUTED)
+        route_meta_w = min(self.w - 80, route_meta_surf.get_width() + 24)
+        route_meta_box = pygame.Surface((route_meta_w, 24), pygame.SRCALPHA)
+        route_meta_box.fill((20, 15, 40, 210))
+        pygame.draw.rect(route_meta_box, ROUTE_TAB_BORDER, (0, 0, route_meta_w, 24), 1, border_radius=10)
+        pygame.draw.rect(route_meta_box, (255, 255, 255, 10), (3, 3, route_meta_w - 6, 18), 1, border_radius=8)
+        route_meta_box.blit(route_meta_surf, ((route_meta_w - route_meta_surf.get_width()) // 2, 4))
+        self.screen.blit(route_meta_box, ((self.w - route_meta_w) // 2, 62))
+
+        # Main route frame
+        frame_rect = pygame.Rect(18, 92, self.w - 36, self.h - 178)
+        self._draw_route_panel(frame_rect)
+
+        # Layout
+        max_layer_nodes = max(len(nodes) for nodes in ordered_layers)
+        node_w = 104 if layer_count <= 4 else (96 if layer_count == 5 else 88)
+        node_h = 64 if max_layer_nodes <= 2 else (60 if max_layer_nodes == 3 else 56)
+        map_left = frame_rect.left + 62
+        map_right = frame_rect.right - 62
+        map_top = frame_rect.top + 48
+        map_bottom = frame_rect.bottom - 82
+        map_h = max(1, map_bottom - map_top)
+        x_gap = (map_right - map_left) / max(1, layer_count - 1)
+
+        positions: dict[int, tuple[int, int, int, int]] = {}
+        for layer_idx, nodes in enumerate(ordered_layers):
+            count = len(nodes)
+            x_center = int(map_left + layer_idx * x_gap)
+            layer_norm = layer_idx / max(1, layer_count - 1)
+            layer_wave = int(math.sin(layer_norm * math.pi) * 10)
+            layer_shift = int(math.cos(layer_norm * math.pi * 1.4) * 5)
+            if count == 1:
+                y_positions = [map_top + map_h // 2]
+            else:
+                # Interior layers get a wider vertical lane so stacked rooms do not feel crowded.
+                interior_depth = min(layer_idx, layer_count - 1 - layer_idx)
+                span_factor = 0.52 + min(0.18, interior_depth * 0.08) + max(0, count - 2) * 0.04
+                span_px = min(map_h - 12, int(map_h * span_factor))
+                start_y = map_top + (map_h - span_px) // 2
+                step = span_px / max(1, count - 1)
+                y_positions = []
+                for pos in range(count):
+                    y_positions.append(int(start_y + pos * step))
+            for pos, node in enumerate(nodes):
+                node_bias = pos - (count - 1) / 2.0
+                y = y_positions[pos] + layer_wave + int(node_bias * 2)
+                x_nudge = 0 if count == 1 else int(node_bias * 9) + layer_shift
+                positions[node.id] = (x_center - node_w // 2 + x_nudge, y, node_w, node_h)
+
+        # Layer markers
+        for layer_idx, nodes in enumerate(ordered_layers):
+            x_center = int(map_left + layer_idx * x_gap)
+            if layer_idx == 0:
+                label_text = "START"
+                accent = ROUTE_AVAILABLE
+                is_boss = False
+            elif layer_idx == layer_count - 1:
+                label_text = "BOSS"
+                accent = ROUTE_BOSS
+                is_boss = True
+            else:
+                label_text = f"LAYER {layer_idx}"
+                accent = ROUTE_ACCENT
+                is_boss = False
+            self._draw_route_tab(x_center, frame_rect.top + 8, label_text, accent, is_boss=is_boss)
+
+        # Connections first, nodes on top
+        connection_surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+        for node in self.run.map.nodes:
+            start_rect = positions.get(node.id)
+            if start_rect is None:
+                continue
+            sx, sy, sw, sh = start_rect
+            start = (sx + sw, sy + sh // 2)
+            color = ROOM_COLORS.get(node.node_type, DIM_WHITE)
+            is_completed = node.id in self.run.map.completed_ids
+            for target_id in node.connections:
+                target_rect = positions.get(target_id)
+                if target_rect is None:
+                    continue
+                tx, ty, tw, th = target_rect
+                end = (tx, ty + th // 2)
+                is_live = node.id == current_id and target_id in available_ids
+                alpha = 150 if is_live else (62 if is_completed else 100)
+                self._draw_route_connection(
+                    connection_surf,
+                    start,
+                    end,
+                    color,
+                    alpha=alpha,
+                    active=is_live,
+                    completed=is_completed,
+                )
+        self.screen.blit(connection_surf, (0, 0))
+
+        # Nodes
+        for node in self.run.map.nodes:
+            rect = positions.get(node.id)
+            if rect is None:
+                continue
+            self._draw_route_node_card(node, rect, current_id, selected_id, available_ids)
+
+        # Selected node info
+        if selected is not None:
+            is_ready = selected.id in available_ids or selected.id == current_id
+            accent = ROOM_COLORS.get(selected.node_type, NEON_CYAN)
+            top_line = self._route_map_label(selected)
+            if selected.node_type in (RoomType.COMBAT, RoomType.ELITE, RoomType.BOSS) and selected.enemy:
+                enemy_name = ENEMY_POOL.get(selected.enemy, {}).get("name", selected.enemy)
+                top_line = f"{top_line} · {enemy_name}"
+            elif selected.node_type == RoomType.LOOT:
+                top_line = "Treasure cache · Reward room"
+            elif selected.node_type == RoomType.REST:
+                top_line = "Rest point · Recover HP"
+            elif selected.node_type == RoomType.SHOP:
+                top_line = "Shop · Buy supplies"
+            elif selected.node_type == RoomType.SHRINE:
+                top_line = "Event · Choose a blessing"
+            elif selected.node_type == RoomType.TRAP:
+                top_line = "Hazard · Dangerous route"
+            else:
+                top_line = f"{self._route_map_label(selected)} · Explore onward"
+
+            top_color = ROUTE_TEXT if is_ready else ROUTE_MUTED
+            info_w = min(self.w - 80, max(360, self.font_medium.render(top_line, True, top_color).get_width() + 34))
+            info_h = 64
+            info_x = (self.w - info_w) // 2
+            info_y = self.h - 96
+            info_box = pygame.Surface((info_w, info_h), pygame.SRCALPHA)
+            info_box.fill(ROUTE_PANEL_FILL)
+            pygame.draw.rect(info_box, (*accent, 220), (0, 0, info_w, info_h), 1, border_radius=12)
+            pygame.draw.rect(info_box, (255, 255, 255, 12), (4, 4, info_w - 8, info_h - 8), 1, border_radius=10)
+            accent_bar = pygame.Rect(10, 10, 6, info_h - 20)
+            pygame.draw.rect(info_box, (*accent, 220), accent_bar, border_radius=3)
+            info_text = self._render_text_with_outline(top_line, self.font_medium, top_color, outline=(0, 0, 0), outline_px=1)
+            info_box.blit(info_text, (22, 8))
+            if selected.id == current_id and not selected.cleared:
+                sub_line = "Current node · Enter to descend"
+            else:
+                sub_line = "Enter to select this route"
+            sub_color = accent if is_ready else DIM_WHITE
+            sub_text = self._render_text_with_outline(sub_line, self.font_hud, sub_color, outline=(0, 0, 0), outline_px=1)
+            info_box.blit(sub_text, (22, 34))
+            self.screen.blit(info_box, (info_x, info_y))
+
+        layer_note = self._render_text_with_outline(
+            "← / → Layer    ↑ / ↓ Node    Enter Select    Esc Retreat",
+            self.font_map_meta,
+            ROUTE_TEXT,
+            outline=(0, 0, 0),
+            outline_px=1,
+        )
+        note_w = layer_note.get_width() + 18
+        note_h = layer_note.get_height() + 8
+        note_x = (self.w - note_w) // 2
+        note_y = self.h - 28
+        note_surf = pygame.Surface((note_w, note_h), pygame.SRCALPHA)
+        note_surf.fill((20, 15, 40, 235))
+        pygame.draw.rect(note_surf, ROUTE_TAB_BORDER, (0, 0, note_w, note_h), 1, border_radius=10)
+        pygame.draw.rect(note_surf, (255, 255, 255, 12), (3, 3, note_w - 6, note_h - 6), 1, border_radius=8)
+        note_surf.blit(layer_note, (9, 4))
+        self.screen.blit(note_surf, (note_x, note_y))
+
     # ── Room display ──────────────────────────────────────────────
 
     def draw_room(self):
@@ -162,12 +661,10 @@ class DungeonUI:
         color = ROOM_COLORS.get(rtype, WHITE)
         label = ROOM_LABELS.get(rtype, "?")
         total = self.run.total_rooms
-
-        # ── Minimap ──
-        self._draw_minimap(6, 10)
+        reachable = len(self.run.available_nodes) if hasattr(self.run, "available_nodes") else 0
 
         # Room counter
-        counter = self.font_medium.render(f"Room {self.run.room_index + 1} / {total}", True, DIM_WHITE)
+        counter = self.font_medium.render(f"Floor {self.run.floor} · Room {self.run.room_index + 1} / {total}", True, DIM_WHITE)
         self.screen.blit(counter, ((self.w - counter.get_width()) // 2, 30))
         bar_w, bar_h = 400, 6
         bx = (self.w - bar_w) // 2
@@ -185,21 +682,24 @@ class DungeonUI:
         label_surf = self.font_large.render(f"{label} Room", True, color)
         self.screen.blit(label_surf, ((self.w - label_surf.get_width()) // 2, 150))
 
+        sub = self.font_small.render(f"{self.run.biome['name']}  ·  {reachable} reachable paths", True, DIM_WHITE)
+        self.screen.blit(sub, ((self.w - sub.get_width()) // 2, 176))
+
         # Description
         desc = self._room_desc(room)
         desc_surf = self.font_small.render(desc, True, DIM_WHITE)
-        self.screen.blit(desc_surf, ((self.w - desc_surf.get_width()) // 2, 190))
+        self.screen.blit(desc_surf, ((self.w - desc_surf.get_width()) // 2, 208))
 
         # Action hint
         hint = self._room_hint(room)
         hint_color = GOLD if rtype == RoomType.EXIT else (RED if rtype == RoomType.BOSS else NEON_CYAN)
         hint_surf = self.font_medium.render(hint, True, hint_color)
-        self.screen.blit(hint_surf, ((self.w - hint_surf.get_width()) // 2, 240))
+        self.screen.blit(hint_surf, ((self.w - hint_surf.get_width()) // 2, 250))
 
         # HP/SP summary
         p = self.run.player
         hp_sp = self.font_small.render(f"HP: {p.current_hp}/{p.max_hp}   SP: {p.sp}/{p.max_sp}", True, WHITE)
-        self.screen.blit(hp_sp, ((self.w - hp_sp.get_width()) // 2, 280))
+        self.screen.blit(hp_sp, ((self.w - hp_sp.get_width()) // 2, 292))
 
         # Boss room pulsing red border overlay
         if rtype == RoomType.BOSS:
@@ -653,127 +1153,6 @@ class DungeonUI:
         # Controls
         hint = self.font_hud.render("1/2: Buy   ESC: Leave", True, (120, 120, 140))
         self.screen.blit(hint, (px + (panel_w - hint.get_width()) // 2, py + panel_h - 22))
-
-    # ── Branch choice ─────────────────────────────────────────────
-
-    def draw_branch_choice(self):
-        """Draw two room cards side by side for the player to choose."""
-        if not self.run or not self.run.branching:
-            return
-
-        self.screen.fill(BG_COLOR)
-
-        # Title
-        title = self.font_title.render("Choose Your Path", True, NEON_CYAN)
-        self.screen.blit(title, ((self.w - title.get_width()) // 2, 40))
-
-        # Subtitle
-        sub = self.font_small.render("The corridor splits ahead...", True, DIM_WHITE)
-        self.screen.blit(sub, ((self.w - sub.get_width()) // 2, 85))
-
-        # Cards
-        card_w, card_h = 250, 200
-        gap = 30
-        total_w = card_w * 2 + gap
-        start_x = (self.w - total_w) // 2
-        card_y = (self.h - card_h) // 2 - 20
-
-        for i, room in enumerate(self.run.branch_choices):
-            cx = start_x + i * (card_w + gap)
-            selected = i == self.branch_selection
-
-            # Card background
-            card = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            card.fill((PANEL_BG[0], PANEL_BG[1], PANEL_BG[2], 220))
-            self.screen.blit(card, (cx, card_y))
-
-            # Border color
-            border_color = NEON_CYAN if selected else NEON_CYAN_DIM
-            border_width = 3 if selected else 1
-            pygame.draw.rect(self.screen, border_color,
-                             (cx, card_y, card_w, card_h), width=border_width, border_radius=8)
-
-            # Selection pulse
-            if selected:
-                pulse = 0.7 + 0.3 * math.sin(self._elapsed * 0.005)
-                sel_overlay = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-                sel_overlay.fill((*NEON_CYAN, int(20 * pulse)))
-                self.screen.blit(sel_overlay, (cx, card_y))
-
-            # Room type icon and label
-            rtype = room["type"]
-            icon_text = ROOM_ICONS.get(rtype, "?")
-            label = ROOM_LABELS.get(rtype, "?")
-            color = ROOM_COLORS.get(rtype, WHITE)
-
-            self._draw_room_icon(icon_text, cx + card_w // 2, card_y + 30, color, size=28)
-
-            label_surf = self.font_large.render(label, True, color)
-            lx = cx + (card_w - label_surf.get_width()) // 2
-            self.screen.blit(label_surf, (lx, card_y + 65))
-
-            # Flavor text (wrapped)
-            flavor = room.get("flavor", "")
-            flavor_font = self.font_small
-            max_w = card_w - 24
-            words = flavor.split()
-            lines = []
-            current = ""
-            for word in words:
-                test = current + " " + word if current else word
-                if flavor_font.size(test)[0] <= max_w:
-                    current = test
-                else:
-                    if current:
-                        lines.append(current)
-                    current = word
-            if current:
-                lines.append(current)
-
-            fy = card_y + 100
-            for line in lines[:3]:  # max 3 lines
-                fs = flavor_font.render(line, True, DIM_WHITE)
-                self.screen.blit(fs, (cx + (card_w - fs.get_width()) // 2, fy))
-                fy += fs.get_height() + 2
-
-            # Risk / Reward hints
-            hint_y = card_y + card_h - 52
-            if rtype == RoomType.BOSS:
-                risk = "Risk: EXTREME"
-                reward = "Reward: Rare+ Gear"
-            elif rtype in (RoomType.COMBAT, RoomType.ELITE):
-                risk = "Risk: High" if rtype == RoomType.ELITE else "Risk: Low"
-                reward = "Reward: XP + Gold"
-            elif rtype == RoomType.LOOT:
-                risk = "Risk: None"
-                reward = "Reward: Gear"
-            elif rtype == RoomType.REST:
-                risk = "Risk: None"
-                reward = "Reward: HP Restore"
-            elif rtype == RoomType.SHOP:
-                risk = "Risk: None"
-                reward = "Reward: Consumables"
-            else:
-                risk = ""
-                reward = ""
-
-            if risk:
-                rs = self.font_hud.render(risk, True, (170, 170, 190))
-                self.screen.blit(rs, (cx + (card_w - rs.get_width()) // 2, hint_y))
-                hint_y += rs.get_height() + 2
-            if reward:
-                rw = self.font_hud.render(reward, True, (170, 170, 190))
-                self.screen.blit(rw, (cx + (card_w - rw.get_width()) // 2, hint_y))
-
-            # Direction hint
-            dir_text = "< LEFT" if i == 0 else "RIGHT >"
-            dir_color = NEON_CYAN if selected else (80, 80, 100)
-            dir_surf = self.font_small.render(dir_text, True, dir_color)
-            self.screen.blit(dir_surf, (cx + (card_w - dir_surf.get_width()) // 2, card_y + card_h - 18))
-
-        # Controls hint at bottom
-        ctrl = self.font_small.render("[LEFT/RIGHT] Select   [ENTER] Confirm", True, (90, 90, 115))
-        self.screen.blit(ctrl, ((self.w - ctrl.get_width()) // 2, self.h - 40))
 
     def _draw_room_icon(self, icon_type: str, cx: int, cy: int, color, size: int = 32):
         """Draw a procedural room type icon centered at (cx, cy)."""
